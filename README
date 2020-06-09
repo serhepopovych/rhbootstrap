@@ -1,0 +1,224 @@
+Utility to bootstrap RHEL/CentOS system
+=======================================
+
+On Debian/Ubuntu there is debootstrap(8) utility that takes number of
+parameters and installs packages for selected release to given directory
+that later can be used as base system (chroot) for multiple purposes
+(e.g. containers, NFS root, etc).
+
+There is no known (at least to me) similar tool for RHEL/CentOS systems.
+
+This utility tries to fill this gap and provide similar functionality
+to debootstrap(8) with some useful extra features.
+
+Features
+--------
+
+  o Bootstrap packages to given directory based on provided information
+  o Minimal installation support
+  o RHEL/CentOS 7 and 8
+  o Install packages and configure current system if no directory given
+  o Profiles support to select options, package groups and packages
+  o Preconfigured profiles for
+    - desktop (XFCE, MATE on RHEL/CentOS 7 only, lightdm/sddm as DM)
+    - hypervisor host (libvirt + KVM, libvirt + XEN on CentOS 7 only)
+    - text full (command line utilities and tools)
+  o Options to apply specific tuning
+    - SELinux mode control (e.g. enforced, permissive, disabled)
+    - Add country code (cc) to mirrorlist URL to restrict mirror choice
+      by yum(8)/dnf(8) to certain countries (e.g. US, UA, BY, etc)
+    - NFS root (build generic initramfs, symlink it and vmlinuz to
+      filesystem root similar to Debian/Ubuntu /initrd.img and /vmlinuz)
+    - Read-only root support (make /etc writable through config)
+    - Libvirt sockets and authentication control; user to run qemu
+      system instance; enable/disable nested KVM
+    - Enable/disable certain repos (e.g. EPEL, ELrepo, RPMfusion, etc)
+      and install profile selected packages from them (e.g. vlc)
+    - Helpers to create automatic password for given user (e.g. root)
+      on each boot. Useful for multiple NFS readonly root instances
+      with SSH enabled
+    - Enable serial cosole in GRUB2 and kernels
+    - Modify /etc/issue, /etc/issue.net and /etc/motd
+    - Control zswap.enabled=1 and nosmt kernel command line parameters
+  o Build reproducibility by storing utility itself with profile file
+    and run.sh wrapper with command line options in /.rhbootstrap
+
+Requirements
+------------
+
+Build host requires RHEL/CentOS 7 or 8, POSIX-like shell (e.g. bash
+or dash) and set of common utilities (e.g. sed, ln, rm, etc) listed
+in Requires: tag in utility.
+
+Usage
+-----
+
+Usage: rhbootstrap.sh [options] [<install_root>]
+Options and their defaults:
+    --arch=x86_64
+        System processor (CPU) architecture to install packages for.
+        Only AMD64 (x86_64) supported at the moment
+    --releasever=7
+        Supported CentOS release version
+
+    --install-langs=<all>
+        (rpm) install localization files for given languages (e.g. 'en:ru:uk')
+    --nodocs
+        (rpm) do not install documentation (i.e. one in /usr/share/doc)
+
+    --cc=<none>
+        (yum) country code variable for yum(8) repo mirrorlist URL
+              to restrict selected mirrors to given country
+
+    --config=<none>
+        File with packages and/or groups to install
+    --minimal-install
+        Short cut to install only base set of packages regardless of --config
+
+    --no-repo-epel, --repo-epel
+        Disable/enable EPEL repository and selected packages from it
+    --repo-virtio-win, --no-repo-virtio-win
+        Enable/disable VirtIO-Win repository and selected packages from it
+    --repo-ovirt, --no-repo-ovirt
+        Enable/disable oVirt repository and selected packages from it
+    --repo-elrepo, --no-repo-elrepo
+        Enable/disable ELRepo and selected packages from it
+    --repo-rpm-fusion, --no-repo-rpm-fusion
+        Enable/disable RPM Fusion and selected packages from it
+    --repo-nux-dextop, --no-repo-nux-dextop
+        Enable/disable Nux Dextop and selected packages from it.
+        CentOS 7 only, ignored for CentOS 8
+
+    --nfs-root
+        Prepare bootstrapped system for use as NFS root and make initramfs
+        capable of network boot (e.g. via PXE); inhibits --minimal-install,
+        makes --selinux=permissive if --readonly-root is given; omits
+        boot loader (e.g. grub2 and shim) packages, adds dracut-generic-config
+    --selinux=<unmodified>
+        Configure SELinux mode in /etc/sysconfig/selinux to one of the
+        following values: enforcing, permissive or disabled
+    --readonly-root
+        Enable read-only root filesystem support via
+        /etc/sysconfig/readonly-root $READONLY and other variables; enables
+        --autopassword-root unless --passwordless-root is set
+    --passwordless-root, --no-passwordless-root
+        Make root user passwordless to enable login without password; remote
+        logins via ssh to root will be unavailable (see PermitEmptyPasswords
+        option in sshd_config(8)); option --autopassword-root overrides it
+    --autopassword-root, --no-autopassword-root
+        Make root user password autogenerated from /dev/urandom data
+        on each system boot and shown by getty from /etc/issue on local
+        (e.g. serial and/or virtual) consoles; enabled if --readonly-root
+        set and --passwordless-root is unset, enables remote logins via ssh
+    --no-tmp-mount, --tmp-mount=25
+        Mount /tmp as regular filesystem or tmpfs with size up to
+        25% of system RAM. Valid value range is
+        [10...50]
+    --serial-console=<console=name,options|1>, --no-serial-console
+        Enable/disable console on serial line; if value is 1 use default console
+        settings (console=ttyS0,115200n8)
+    --zswap-enabled, --no-zswap-enabled
+        Add zswap.enabled=1 to kernel command line options to enable zSwap kernel
+        memory management subsystem feature. This could improve overall system
+        responsiveness on systems with high memory usage by delaying swap to disk;
+        has no effect if grub2 is not installed (e.g. when --nfs-root is given)
+    --nosmt, --no-nosmt
+        Add nosmt to kernel command line options to disable SMT (Hyper-Threading)
+        that could be useful for some workloads as well as help to mitigate
+        certain CPU bugs (e.g. l1tf); has no effect if grub2 is not installed
+        (e.g. when --nfs-root is given)
+    --login-banners, --no-login-banners
+        Modify/keep login banners in /etc/issue, /etc/issue.net and /etc/motd
+        making them (e.g. /etc/issue) to provide host useful information
+        (e.g. IPv4 and IPv6 addresses matching hostname) hiding kernel version
+    --autorelabel
+        Add .autorelabel to <install_root> or / if <install_root> not given
+
+    --kvm-nested, --no-kvm-nested
+        Enable/disable KVM nested virtualization via /etc/modprobe.d/kvm.conf.
+        Will require module (or system) reload to take effect.
+    --libvirt-qemu-user=<unmodified>
+        Update user and group directives in /etc/libvirt/qemu.conf with user
+        name to run qemu-kvm system instance as; value is either user name or
+        integer greather than or equal to zero, otherwise default
+        qemu is used
+    --libvirt-unix-group=<unmodified>
+        Local UNIX socket group ownership. Together with --libvirt-unix-ro-perms
+        and --libvirt-unix-rw-perms controls access type to libvirt sockets by
+        users membered in specified group
+    --libvirt-unix-ro-perms=<unmodified>
+        Local UNIX read-only socket permissions. Used together with
+        --libvirt-unix-group to restrict users who can access libvirt R/O socket
+    --libvirt-unix-rw-perms=<unmodified>
+        Local UNIX read-write socket permissions. Used together with
+        --libvirt-unix-group to restrict users who can access libvirt R/W socket
+    --libvirt-unix-auth-ro=<unmodified>
+        Set libvirt UNIX R/O socket authentication scheme to "none", "sasl"
+        or "polkit" (default)
+    --libvirt-unix-auth-rw=<unmodified>
+        Set libvirt UNIX R/W socket authentication scheme to "none", "sasl"
+        or "polkit" (default)
+
+    --force
+        Force bootstrap and remove <install_root> if it already exists
+    --no-build-info
+        Do not add .rhbootstrap/ with build information to <install_root>;
+        implied when no <install_root> is given
+
+    --help, --usage
+        This help/usage message
+    --version
+        This program version
+
+If <install_root> is given perform chrooted installation to that directory.
+Otherwise install into system we running on (default).
+
+Examples
+--------
+
+  1. Build CentOS 8 readonly NFS root using text-full profile
+
+    root@localhost# ~/rhbootstrap/sh \
+        --releasever 8 \
+        --cc us \
+        --config ~/rhbootstrap/conf.d/centos/8/text-full.nfs-root-readonly.conf
+
+    or with options specified at command line and --force to remove existing
+
+    # ~/rhbootstrap/sh \
+        --force \
+        --releasever 8 \
+        --cc us \
+        --config ~/rhbootstrap/conf.d/centos/8/text-full.conf \
+        --nfs-root \
+        --readonly-root
+
+  2. Install CentOS 7 hypervisor host with libvirt and XEN (from Virt SIG)
+     packages and apply libvirt config that uses socket permissions only for
+     authentication
+
+    # ~/rhbootstrap/sh \
+        --releasever 7 \
+        --cc ua \
+        --config ~/rhbootstrap/conf.d/centos/7/libvirt-xen.conf \
+        --libvirt-qemu-user=qemu \
+        --libvirt-unix-group=libvirt \
+        --libvirt-unix-ro-perms=0777 \
+        --libvirt-unix-rw-perms=0770 \
+        --libvirt-unix-auth-ro=none \
+        --libvirt-unix-auth-rw=none
+
+  3. Install CentOS 7 development workstation with MATE desktop, libvirt
+     and KVM EV (Enterprise Virtualization) from Virt SIG
+
+    # ~/rhbootstrap/sh \
+        --releasever 7 \
+        --cc ua \
+        --config ~/rhbootstrap/conf.d/centos/7/libvirt-kvm.xorg-desktop-mate.conf
+
+  4. Install CentOS 8 with XFCE desktop and x2go for remote desktop experience
+
+    # ~/rhbootstrap/sh \
+        --releasever 8 \
+        --cc us \
+        --config ~/rhbootstrap/conf.d/centos/8/x2go-desktop-xfce.conf
