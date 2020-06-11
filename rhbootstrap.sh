@@ -1463,9 +1463,16 @@ _EOF
             chroot "$install_root" systemctl enable ip6tables.service
         fi
 
-        # Disable legacy network initscript if NetworkManager is given
-        if [ -n "${pkg_nm-}" ]; then
-            chroot "$install_root" systemctl disable network.service
+        if [ -x "$install_root/etc/init.d/network" ]; then
+            if [ -n "${pkg_network_scripts-}" ]; then
+                # Enable legacy network scripts if they was explicitly enabled
+                chroot "$install_root" systemctl enable network.service
+            else
+                # Disable legacy network scripts if NetworkManager enabled
+                if [ -n "${pkg_nm-}" ]; then
+                    chroot "$install_root" systemctl disable network.service
+                fi
+            fi
         fi
 
         # Disable lm_sensors as they require explicit configuration
@@ -3537,6 +3544,13 @@ else
     pkg_nm_l2tp=
     pkg_nm_pptp=
 fi # [ -n "${pkg_nm-}" ]
+
+# network-scripts
+if [ -n "${pkg_network_scripts-}" ]; then
+    if [ $releasever -gt 7 ]; then
+        PKGS="$PKGS network-scripts"
+    fi
+fi
 
 ## Mesa
 
