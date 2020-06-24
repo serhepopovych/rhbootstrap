@@ -1440,9 +1440,11 @@ _EOF
             fi
         fi
 
-        # Add default resolv.conf with public nameserver by CloudFlare
-        t="$install_root/etc/resolv.conf"
-        [ -s "$t" ] || echo 'nameserver 1.1.1.1' >"$t"
+        # Force public resolver in resolv.conf for $install_root
+        if [ -n "${install_root%/}" ]; then
+            t="$install_root/etc/resolv.conf"
+            echo 'nameserver 1.1.1.1' >"$t"
+        fi
 
         # Enable tmp.mount with up to $tmp_mount percents of system RAM
         if [ -n "$tmp_mount" ]; then
@@ -1763,6 +1765,14 @@ if [ -n "$install_root" ]; then
     done
 
     if [ -n "${install_root%/}" ]; then
+        # Need access to resolvers: prefer system, fall back to public
+        f='/etc/resolv.conf'
+        if [ -s "$f" ]; then
+            install -D -m 0644 "$f" "$install_root$f"
+        else
+            echo 'nameserver 1.1.1.1' >"$install_root$f"
+        fi
+
         # CentOS 8 dnf requires GPG key to be in installing host system
         if [ $releasever -eq 8 ]; then
             for f in \
