@@ -2101,7 +2101,7 @@ if [ -n "$repo_virtio_win" ]; then
 fi
 
 # oVirt
-if [ -n "${repo_ovirt-}" ]; then
+if [ -n "$repo_ovirt" ]; then
     chroot "$install_root" yum -y --nogpgcheck install \
         "$OVIRT_RELEASE_URL" || repo_ovirt=''
 fi
@@ -2891,13 +2891,6 @@ if [ -n "${grp_virt_host-}" ]; then
         fi
     else
         pkg_qemu_xen=
-    fi
-
-    # oVirt
-    if [ -n "${repo_ovirt-}" ]; then
-        # Install before any package from SIG
-        chroot "$install_root" yum -y --nogpgcheck install \
-             "$OVIRT_RELEASE_URL" || repo_ovirt=''
     fi
 fi # [ -n "${grp_virt_host-}" ]
 
