@@ -280,6 +280,9 @@ nosmt=''
 login_banners=''
 # SELinux context autorelabel
 autorelabel=''
+# Recursive name (DNS) resolution servers
+_nameservers='1.1.1.1'
+nameservers=''
 
 # KVM nesting
 kvm_nested=''
@@ -399,6 +402,8 @@ Options and their defaults:
         (e.g. IPv4 and IPv6 addresses matching hostname) hiding kernel version
     --autorelabel
         Add .autorelabel to <install_root> or / if <install_root> not given
+    --nameservers=${nameservers:-<value>}, --no-nameservers
+        Configure or do not configure resolv.conf with specified nameserver(s)
 
     --kvm-nested, --no-kvm-nested
         Enable/disable KVM nested virtualization via /etc/modprobe.d/kvm.conf.
@@ -632,6 +637,20 @@ while [ $# -gt 0 ]; do
             ;;
         --autorelabel)
             autorelabel=1
+            ;;
+        --no-nameservers)
+            nameservers=''
+            ;;
+        --nameservers)
+            [ -n "${2-}" ] || exit
+            nameservers="$2"
+            arg="--nameservers '$nameservers'"
+            shift
+            ;;
+        --nameservers=*)
+            nameservers="${1##--nameservers=}"
+            [ -n "$nameservers" ] || exit
+            arg="--nameservers='$nameservers'"
             ;;
 
         --kvm-nested)
@@ -1440,10 +1459,16 @@ _EOF
             fi
         fi
 
-        # Force public resolver in resolv.conf for $install_root
-        if [ -n "${install_root%/}" ]; then
-            t="$install_root/etc/resolv.conf"
-            echo 'nameserver 1.1.1.1' >"$t"
+        # Configure nameserver(s) in resolv.conf
+        t="$install_root/etc/resolv.conf"
+        if [ -n "${nameservers}${install_root%/}" ]; then
+            : >"$t"
+        fi
+        if [ -n "${nameservers}" ]; then
+            local n
+            for n in ${nameservers}; do
+                echo "nameserver $n" >>"$t"
+            done
         fi
 
         # Enable tmp.mount with up to $tmp_mount percents of system RAM
@@ -1767,10 +1792,14 @@ if [ -n "$install_root" ]; then
     if [ -n "${install_root%/}" ]; then
         # Need access to resolvers: prefer system, fall back to public
         f='/etc/resolv.conf'
+        d="$install_root$f"
+
         if [ -s "$f" ]; then
-            install -D -m 0644 "$f" "$install_root$f"
+            install -D -m 0644 "$f" "$d"
         else
-            echo 'nameserver 1.1.1.1' >"$install_root$f"
+            for f in ${nameservers:-${_nameservers}}; do
+                echo "nameserver $f" >>"$d"
+            done
         fi
 
         # CentOS 8 dnf requires GPG key to be in installing host system
@@ -1904,6 +1933,8 @@ if [ -n "$nfs_root" ]; then
     pkg_dkms=0
     # Mount /tmp as tmpfs
     tmp_mount=${tmp_mount:-1}
+    # Set nameserver(s)
+    nameservers="${nameservers:-${_nameservers}}"
 
     # Add "nfs" dracut module (from dracut-network package)
     echo 'add_dracutmodules+=" nfs "' \

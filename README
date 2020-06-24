@@ -133,6 +133,8 @@ Options and their defaults:
         (e.g. IPv4 and IPv6 addresses matching hostname) hiding kernel version
     --autorelabel
         Add .autorelabel to <install_root> or / if <install_root> not given
+    --nameservers=${nameservers:-<value>}, --no-nameservers
+        Configure or do not configure resolv.conf with specified nameserver(s)
 
     --kvm-nested, --no-kvm-nested
         Enable/disable KVM nested virtualization via /etc/modprobe.d/kvm.conf.
