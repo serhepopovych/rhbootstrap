@@ -2084,12 +2084,6 @@ if [ -n "$autorelabel" ]; then
     echo : >"$install_root/.autorelabel"
 fi
 
-## Minimal install
-
-if [ -n "${minimal_install-}" ]; then
-    exit 0
-fi
-
 ## Install external repositories
 
 # EPEL
@@ -2128,6 +2122,12 @@ fi
 if [ -n "$repo_nux_dextop" ]; then
     chroot "$install_root" yum -y --nogpgcheck install \
         "$NUX_DEXTOP_RELEASE_URL" || repo_nux_dextop=''
+fi
+
+## Minimal install
+
+if [ -n "${minimal_install-}" ]; then
+    exit 0
 fi
 
 ## Release specific tricks
