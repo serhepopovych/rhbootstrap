@@ -762,9 +762,9 @@ if [ $releasever -eq 8 ]; then
     # Base (contains EPEL release)
     CENTOS_URL="http://mirror.centos.org/centos/$releasever/BaseOS/$arch/os/Packages"
     CENTOS_RPMS="
-        centos-release-8.1-1.1911.0.9.el8.$arch.rpm
-        centos-repos-8.1-1.1911.0.9.el8.$arch.rpm
-        centos-gpg-keys-8.1-1.1911.0.9.el8.noarch.rpm
+        centos-release-8.2-2.2004.0.1.el8.$arch.rpm
+        centos-repos-8.2-2.2004.0.1.el8.$arch.rpm
+        centos-gpg-keys-8.2-2.2004.0.1.el8.noarch.rpm
     "
     # ELRepo
     ELREPO_URL='https://www.elrepo.org'
