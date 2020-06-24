@@ -830,6 +830,11 @@ else
     OVIRT_RELEASE_URL='https://resources.ovirt.org/pub/yum-repo/ovirt-release43.rpm'
 fi
 
+# $repo_virtio_win, $repo_ovirt
+if [ -n "$repo_ovirt" ]; then
+    repo_virtio_win=''
+fi
+
 # $repo_epel, $repo_rpm_fusion, $repo_nux_dextop
 if [ -n "$repo_rpm_fusion" -o -n "$repo_nux_dextop" ]; then
     repo_epel=1
