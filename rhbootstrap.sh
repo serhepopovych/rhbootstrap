@@ -249,6 +249,7 @@ minimal_install=''
 # Third-party repositories (e.g. EPEL, ELRepo and Nux Dextop)
 repo_epel=1
 repo_virtio_win=''
+repo_adv_virt=''
 repo_ovirt=''
 repo_elrepo=''
 repo_rpm_fusion=''
@@ -347,7 +348,11 @@ Options and their defaults:
     --no-repo-epel, --repo-epel
         Disable/enable EPEL repository and selected packages from it
     --repo-virtio-win, --no-repo-virtio-win
-        Enable/disable VirtIO-Win repository and selected packages from it
+        Enable/disable VirtIO-Win repository and selected
+        packages from it, ignored if oVirt repository enabled
+    --repo-adv-virt, --no-repo-adv-virt
+        Enable/disable Advanced-Virtualization repository and selected
+        packages from it, ignored for CentOS 7 or if oVirt repository enabled
     --repo-ovirt, --no-repo-ovirt
         Enable/disable oVirt repository and selected packages from it
     --repo-elrepo, --no-repo-elrepo
@@ -530,6 +535,13 @@ while [ $# -gt 0 ]; do
             ;;
         --repo-virtio-win)
             repo_virtio_win=1
+            ;;
+        # Advanced-Virtualization
+        --no-repo-adv-virt)
+            repo_adv_virt=''
+            ;;
+        --repo-adv-virt)
+            repo_adv_virt=1
             ;;
         # oVirt
         --no-repo-ovirt)
@@ -823,6 +835,37 @@ fi
 # VirtIO-Win
 VIRTIO_WIN_URL='https://fedorapeople.org/groups/virt/virtio-win/virtio-win.repo'
 
+# Advanced-Virtualization
+adv_virt_repo()
+{
+    local e="${-:-no}" && e="${e##*e*}"
+    local rc=0
+
+    # Do not exit on cat(1) fail
+    set +e
+
+    cat <<_EOF
+[advanced-virtualization]
+name=Advanced Virtualization packages for \$basearch
+mirrorlist=http://mirrorlist.centos.org/?arch=\$basearch&release=8&repo=virt-advanced-virtualization${cc:+&cc=\$cc}
+enabled=1
+gpgcheck=1
+gpgkey=https://www.centos.org/keys/RPM-GPG-KEY-CentOS-SIG-Virtualization
+module_hotfixes=1
+_EOF
+    rc=$?
+
+    # Restore set -e if it was on
+    [ -n "$e" ] || set -e
+
+    return $rc
+}
+
+if [ $releasever -eq 7 ]; then
+    # Provided by CentOS Virtualization SIG
+    repo_adv_virt=''
+fi
+
 # oVirt
 if [ $releasever -ge 8 ]; then
     OVIRT_RELEASE_URL='https://resources.ovirt.org/pub/yum-repo/ovirt-release44.rpm'
@@ -830,9 +873,10 @@ else
     OVIRT_RELEASE_URL='https://resources.ovirt.org/pub/yum-repo/ovirt-release43.rpm'
 fi
 
-# $repo_virtio_win, $repo_ovirt
+# $repo_virtio_win, $repo_adv_virt, $repo_ovirt
 if [ -n "$repo_ovirt" ]; then
     repo_virtio_win=''
+    repo_adv_virt=''
 fi
 
 # $repo_epel, $repo_rpm_fusion, $repo_nux_dextop
@@ -2105,6 +2149,13 @@ fi
 if [ -n "$repo_virtio_win" ]; then
     wget -O "$install_root/etc/yum.repos.d/virtio-win.repo" \
         "$VIRTIO_WIN_URL" && has_repo=1 || repo_virtio_win='' \
+        #
+fi
+
+# Advanced-Virtualization
+if [ -n "$repo_adv_virt" ]; then
+    adv_virt_repo >"$install_root/etc/yum.repos.d/adv-virt.repo" &&
+        has_repo=1 || repo_adv_virt='' \
         #
 fi
 
