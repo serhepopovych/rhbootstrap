@@ -1895,6 +1895,7 @@ yum -y \
     --exclude='xfsprogs' \
     --exclude='sg3_utils' \
     --exclude='iprutils' \
+    --exclude='sssd-*' \
     \
     install '@core' \
     $PKGS \
