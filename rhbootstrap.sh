@@ -2091,42 +2091,50 @@ fi
 
 ## Install external repositories
 
+has_repo=''
+
 # EPEL
 if [ -n "$repo_epel" ]; then
     chroot "$install_root" yum -y install \
-        'epel-release' \
+        'epel-release' && has_repo=1 \
         #
 fi
 
 # VirtIO-Win
 if [ -n "$repo_virtio_win" ]; then
     wget -O "$install_root/etc/yum.repos.d/virtio-win.repo" \
-        "$VIRTIO_WIN_URL" \
+        "$VIRTIO_WIN_URL" && has_repo=1 || repo_virtio_win='' \
         #
 fi
 
 # oVirt
 if [ -n "$repo_ovirt" ]; then
     chroot "$install_root" yum -y --nogpgcheck install \
-        "$OVIRT_RELEASE_URL" || repo_ovirt=''
+        "$OVIRT_RELEASE_URL" && has_repo=1 || repo_ovirt=''
 fi
 
 # ELRepo
 if [ -n "$repo_elrepo" ]; then
     chroot "$install_root" yum -y --nogpgcheck install \
-        "$ELREPO_RELEASE_URL" || repo_elrepo=''
+        "$ELREPO_RELEASE_URL" && has_repo=1 || repo_elrepo=''
 fi
 
 # RPM Fusion
 if [ -n "$repo_rpm_fusion" ]; then
     chroot "$install_root" yum -y --nogpgcheck install \
-        "$RPM_FUSION_RELEASE_URL" || repo_rpm_fusion=''
+        "$RPM_FUSION_RELEASE_URL" && has_repo=1 || repo_rpm_fusion=''
 fi
 
 # Nux Dextop
 if [ -n "$repo_nux_dextop" ]; then
     chroot "$install_root" yum -y --nogpgcheck install \
-        "$NUX_DEXTOP_RELEASE_URL" || repo_nux_dextop=''
+        "$NUX_DEXTOP_RELEASE_URL" && has_repo=1 || repo_nux_dextop=''
+fi
+
+## Update repos data (e.g. import PGP keys) and possibly installed packages
+
+if [ -n "$has_repo" ]; then
+    chroot "$install_root" yum -y update
 fi
 
 ## Minimal install
@@ -2858,12 +2866,15 @@ if [ -n "${grp_virt_host-}" ]; then
     # qemu-kvm
     if [ -n "${pkg_qemu_kvm-}" ]; then
         if [ $releasever -eq 7 ]; then
+            PKGS="$PKGS qemu-kvm-ev"
+
             # Install before any package from SIG
             chroot "$install_root" yum -y install \
                 'centos-release-qemu-ev' \
                 'centos-release-virt-common' \
                 #
-            PKGS="$PKGS qemu-kvm-ev"
+            # Update repos data and possibly installed packages
+            chroot "$install_root" yum -y update
         else
             PKGS="$PKGS qemu-kvm"
         fi
@@ -2881,12 +2892,15 @@ if [ -n "${grp_virt_host-}" ]; then
     # qemu-xen
     if [ -n "${pkg_qemu_xen-}" ]; then
         if [ $releasever -le 7 ]; then
+            PKGS="$PKGS xen"
+
             # Install before any package from SIG
             chroot "$install_root" yum -y install \
                 'centos-release-xen' \
                 'centos-release-xen-common' \
                 #
-            PKGS="$PKGS xen"
+            # Update repos data and possibly installed packages
+            chroot "$install_root" yum -y update
 
             # libvirt-daemon-xen
             [ -z "${pkg_libvirt-}" ] || PKGS="$PKGS libvirt-daemon-xen"
