@@ -23,7 +23,7 @@
 # SOFTWARE.
 
 # Requires: mountpoint(1), chroot(1), find(1), xargs(1), install(1), dd(1),
-#           sed(1), mv(1), rm(1), ln(1), cat(1), rpm(1), yum(1), wget(1), id(1),
+#           sed(1), mv(1), rm(1), ln(1), cat(1), rpm(1), yum(1), curl(1), id(1),
 #           uname(1), mount(8), umount(8)
 
 # Set option(s)
@@ -880,7 +880,8 @@ if [ -n "$config" ]; then
     if [ -z "${config##*://*}" ]; then
         url="$config"
         config="$this_dir/${config##*/}"
-        wget -O "$config" "$url" || fatal 'unable to fetch "%s" config\n' "$url"
+        curl -s -o "$config" "$url" ||
+            fatal 'unable to fetch "%s" config\n' "$url"
         unset url
     fi
     if [ -f "$config" ]; then
@@ -2149,7 +2150,7 @@ fi
 
 # VirtIO-Win
 if [ -n "$repo_virtio_win" ]; then
-    wget -O "$install_root/etc/yum.repos.d/virtio-win.repo" \
+    curl -s -o "$install_root/etc/yum.repos.d/virtio-win.repo" \
         "$VIRTIO_WIN_URL" && has_repo=1 || repo_virtio_win='' \
         #
 fi

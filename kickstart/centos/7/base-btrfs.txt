@@ -85,8 +85,6 @@ gdisk
 mc
 tmux
 
-wget
-
 mtr
 tcpdump
 

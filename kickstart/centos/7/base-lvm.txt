@@ -88,8 +88,6 @@ tmux
 mtr
 tcpdump
 
-wget
-
 strace
 lsof
 
