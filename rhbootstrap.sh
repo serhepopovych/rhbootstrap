@@ -2759,6 +2759,7 @@ fi
 
 [ -z "${pkg_sysfsutils-}" ] || PKGS="$PKGS sysfsutils"
 [ -z "${pkg_numactl-}" ] || PKGS="$PKGS numactl"
+[ -z "${pkg_driverctl-}" ] || PKGS="$PKGS driverctl"
 
 [ -z "${pkg_lshw-}" ] || PKGS="$PKGS lshw"
 [ -z "${pkg_pciutils-}" ] || PKGS="$PKGS pciutils"
