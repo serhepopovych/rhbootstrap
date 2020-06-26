@@ -2880,6 +2880,8 @@ fi
 
 [ -z "${pkg_ntpdate-}" ] || PKGS="$PKGS ntpdate"
 
+[ -z "${pkg_dpdk-}" ] || PKGS="$PKGS dpdk"
+
 [ -z "${pkg_wpa_supplicant-}" ] || PKGS="$PKGS wpa_supplicant"
 [ -z "${pkg_usb_modeswitch-}" ] || PKGS="$PKGS usb_modeswitch"
 
