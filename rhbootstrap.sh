@@ -2162,6 +2162,12 @@ if [ -n "$repo_epel" ]; then
         #
 fi
 
+# ELRepo
+if [ -n "$repo_elrepo" ]; then
+    chroot "$install_root" yum -y --nogpgcheck install \
+        "$ELREPO_RELEASE_URL" && has_repo=1 || repo_elrepo=''
+fi
+
 # VirtIO-Win
 if [ -n "$repo_virtio_win" ]; then
     wget -O "$install_root/etc/yum.repos.d/virtio-win.repo" \
@@ -2180,12 +2186,6 @@ fi
 if [ -n "$repo_ovirt" ]; then
     chroot "$install_root" yum -y --nogpgcheck install \
         "$OVIRT_RELEASE_URL" && has_repo=1 || repo_ovirt=''
-fi
-
-# ELRepo
-if [ -n "$repo_elrepo" ]; then
-    chroot "$install_root" yum -y --nogpgcheck install \
-        "$ELREPO_RELEASE_URL" && has_repo=1 || repo_elrepo=''
 fi
 
 # RPM Fusion
