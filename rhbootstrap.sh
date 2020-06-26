@@ -790,13 +790,18 @@ esac
 
 # $releasever
 if [ $releasever -eq 8 ]; then
-    # Base (contains EPEL release)
+    # Base
     CENTOS_URL="http://mirror.centos.org/centos/$releasever/BaseOS/$arch/os/Packages"
     CENTOS_RPMS="
         centos-release-8.2-2.2004.0.1.el8.$arch.rpm
         centos-repos-8.2-2.2004.0.1.el8.$arch.rpm
         centos-gpg-keys-8.2-2.2004.0.1.el8.noarch.rpm
     "
+    # EPEL
+    EPEL_URL='https://dl.fedoraproject.org/pub/epel'
+    EPEL_RELEASE_RPM='epel-release-latest-8.noarch.rpm'
+    EPEL_RELEASE_URL="$EPEL_URL/$EPEL_RELEASE_RPM"
+
     # ELRepo
     ELREPO_URL='https://www.elrepo.org'
     ELREPO_RELEASE_RPM='elrepo-release-8.el8.elrepo.noarch.rpm'
@@ -810,9 +815,14 @@ if [ $releasever -eq 8 ]; then
     # No Nux Dextop for RHEL8 at the moment
     repo_nux_dextop=
 elif [ $releasever -eq 7 ]; then
-    # Base (contains EPEL release)
+    # Base
     CENTOS_URL="http://mirror.centos.org/centos/$releasever/os/$arch/Packages"
     CENTOS_RPMS="centos-release-7-8.2003.0.el7.centos.$arch.rpm"
+
+    # EPEL
+    EPEL_URL='https://dl.fedoraproject.org/pub/epel'
+    EPEL_RELEASE_RPM='epel-release-latest-7.noarch.rpm'
+    EPEL_RELEASE_URL="$EPEL_URL/$EPEL_RELEASE_RPM"
 
     # ELRepo
     ELREPO_URL='https://www.elrepo.org'
@@ -2140,8 +2150,15 @@ has_repo=''
 
 # EPEL
 if [ -n "$repo_epel" ]; then
-    chroot "$install_root" yum -y install \
-        'epel-release' && has_repo=1 \
+    # Enable PowerTools if EPEL is enabled to satisfy dependencies
+    if [ $releasever -gt 7 ]; then
+       chroot "$install_root" \
+           yum config-manager --set-enabled PowerTools \
+           #
+    fi
+
+    chroot "$install_root" yum -y --nogpgcheck install \
+        "$EPEL_RELEASE_URL" && has_repo=1 \
         #
 fi
 
@@ -2198,14 +2215,6 @@ fi
 ## Release specific tricks
 
 if [ $releasever -gt 7 ]; then
-    # Enable PowerTools if EPEL is enabled to satisfy dependencies
-    # hxxps://fedoraproject.org/wiki/EPEL
-    if [ -n "$repo_epel" ]; then
-       chroot "$install_root" \
-           yum config-manager --set-enabled PowerTools \
-           #
-    fi
-
     # Disable packages that not available in repositories for CentOS/RHEL 8+
     pkg_iucode_tool=
 
