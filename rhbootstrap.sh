@@ -249,7 +249,7 @@ minimal_install=''
 # Third-party repositories (e.g. EPEL, ELRepo and Nux Dextop)
 repo_epel=1
 repo_virtio_win=''
-repo_adv_virt=''
+repo_openstack=''
 repo_ovirt=''
 repo_elrepo=''
 repo_rpm_fusion=''
@@ -350,11 +350,12 @@ Options and their defaults:
     --repo-virtio-win, --no-repo-virtio-win
         Enable/disable VirtIO-Win repository and selected
         packages from it, ignored if oVirt repository enabled
-    --repo-adv-virt, --no-repo-adv-virt
-        Enable/disable Advanced-Virtualization repository and selected
-        packages from it, ignored for CentOS 7 or if oVirt repository enabled
+    --repo-openstack, --no-repo-openstack
+        Enable/disable OpenStack repository and selected
+        packages from it, ignored if oVirt repository enabled
     --repo-ovirt, --no-repo-ovirt
-        Enable/disable oVirt repository and selected packages from it
+        Enable/disable oVirt repository and selected packages
+        from it, ignored if OpenStack repository enabled
     --repo-elrepo, --no-repo-elrepo
         Enable/disable ELRepo and selected packages from it
     --repo-rpm-fusion, --no-repo-rpm-fusion
@@ -536,12 +537,12 @@ while [ $# -gt 0 ]; do
         --repo-virtio-win)
             repo_virtio_win=1
             ;;
-        # Advanced-Virtualization
-        --no-repo-adv-virt)
-            repo_adv_virt=''
+        # OpenStack
+        --no-repo-openstack)
+            repo_openstack=''
             ;;
-        --repo-adv-virt)
-            repo_adv_virt=1
+        --repo-openstack)
+            repo_openstack=1
             ;;
         # oVirt
         --no-repo-ovirt)
@@ -807,6 +808,9 @@ if [ $releasever -eq 8 ]; then
     ELREPO_RELEASE_RPM='elrepo-release-8.el8.elrepo.noarch.rpm'
     ELREPO_RELEASE_URL="$ELREPO_URL/$ELREPO_RELEASE_RPM"
 
+    # OpenStack
+    OPENSTACK_RELEASE_RPM='centos-release-openstack-ussuri'
+
     # oVirt
     OVIRT_URL='https://resources.ovirt.org/pub/yum-repo'
     OVIRT_RELEASE_RPM='ovirt-release44.rpm'
@@ -834,6 +838,9 @@ elif [ $releasever -eq 7 ]; then
     ELREPO_RELEASE_RPM='elrepo-release-7.el7.elrepo.noarch.rpm'
     ELREPO_RELEASE_URL="$ELREPO_URL/$ELREPO_RELEASE_RPM"
 
+    # OpenStack
+    OPENSTACK_RELEASE_RPM='centos-release-openstack-train'
+
     # oVirt
     OVIRT_URL='https://resources.ovirt.org/pub/yum-repo'
     OVIRT_RELEASE_RPM='ovirt-release43.rpm'
@@ -855,41 +862,10 @@ fi
 # VirtIO-Win
 VIRTIO_WIN_URL='https://fedorapeople.org/groups/virt/virtio-win/virtio-win.repo'
 
-# Advanced-Virtualization
-adv_virt_repo()
-{
-    local e="${-:-no}" && e="${e##*e*}"
-    local rc=0
-
-    # Do not exit on cat(1) fail
-    set +e
-
-    cat <<_EOF
-[advanced-virtualization]
-name=Advanced Virtualization packages for \$basearch
-mirrorlist=http://mirrorlist.centos.org/?arch=\$basearch&release=8&repo=virt-advanced-virtualization${cc:+&cc=\$cc}
-enabled=1
-gpgcheck=1
-gpgkey=https://www.centos.org/keys/RPM-GPG-KEY-CentOS-SIG-Virtualization
-module_hotfixes=1
-_EOF
-    rc=$?
-
-    # Restore set -e if it was on
-    [ -n "$e" ] || set -e
-
-    return $rc
-}
-
-if [ $releasever -eq 7 ]; then
-    # Provided by CentOS Virtualization SIG
-    repo_adv_virt=''
-fi
-
-# $repo_virtio_win, $repo_adv_virt, $repo_ovirt
+# $repo_virtio_win, $repo_openstack, $repo_ovirt
 if [ -n "$repo_ovirt" ]; then
+    repo_openstack=''
     repo_virtio_win=''
-    repo_adv_virt=''
 fi
 
 # $repo_epel, $repo_rpm_fusion, $repo_nux_dextop
@@ -2178,11 +2154,10 @@ if [ -n "$repo_virtio_win" ]; then
         #
 fi
 
-# Advanced-Virtualization
-if [ -n "$repo_adv_virt" ]; then
-    adv_virt_repo >"$install_root/etc/yum.repos.d/adv-virt.repo" &&
-        has_repo=1 || repo_adv_virt='' \
-        #
+# OpenStack
+if [ -n "$repo_openstack" ]; then
+    chroot "$install_root" yum -y --nogpgcheck install \
+        "$OPENSTACK_RELEASE_RPM" && has_repo=1 || repo_openstack=''
 fi
 
 # oVirt
@@ -2929,16 +2904,8 @@ if [ -n "${grp_virt_host-}" ]; then
 
     # qemu-kvm
     if [ -n "${pkg_qemu_kvm-}" ]; then
-        if [ $releasever -eq 7 ]; then
+        if [ $releasever -eq 7 -a -n "$repo_openstack" ]; then
             PKGS="$PKGS qemu-kvm-ev"
-
-            # Install before any package from SIG
-            chroot "$install_root" yum -y install \
-                'centos-release-qemu-ev' \
-                'centos-release-virt-common' \
-                #
-            # Update repos data and possibly installed packages
-            chroot "$install_root" yum -y update
         else
             PKGS="$PKGS qemu-kvm"
         fi
