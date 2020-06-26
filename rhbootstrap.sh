@@ -807,6 +807,11 @@ if [ $releasever -eq 8 ]; then
     ELREPO_RELEASE_RPM='elrepo-release-8.el8.elrepo.noarch.rpm'
     ELREPO_RELEASE_URL="$ELREPO_URL/$ELREPO_RELEASE_RPM"
 
+    # oVirt
+    OVIRT_URL='https://resources.ovirt.org/pub/yum-repo'
+    OVIRT_RELEASE_RPM='ovirt-release44.rpm'
+    OVIRT_RELEASE_URL="$OVIRT_URL/$OVIRT_RELEASE_RPM"
+
     # RPM Fusion
     RPM_FUSION_URL='https://download1.rpmfusion.org/free/el'
     RPM_FUSION_RELEASE_RPM='rpmfusion-free-release-8.noarch.rpm'
@@ -828,6 +833,11 @@ elif [ $releasever -eq 7 ]; then
     ELREPO_URL='https://www.elrepo.org'
     ELREPO_RELEASE_RPM='elrepo-release-7.el7.elrepo.noarch.rpm'
     ELREPO_RELEASE_URL="$ELREPO_URL/$ELREPO_RELEASE_RPM"
+
+    # oVirt
+    OVIRT_URL='https://resources.ovirt.org/pub/yum-repo'
+    OVIRT_RELEASE_RPM='ovirt-release43.rpm'
+    OVIRT_RELEASE_URL="$OVIRT_URL/$OVIRT_RELEASE_RPM"
 
     # RPM Fusion
     RPM_FUSION_URL='https://download1.rpmfusion.org/free/el'
@@ -874,13 +884,6 @@ _EOF
 if [ $releasever -eq 7 ]; then
     # Provided by CentOS Virtualization SIG
     repo_adv_virt=''
-fi
-
-# oVirt
-if [ $releasever -ge 8 ]; then
-    OVIRT_RELEASE_URL='https://resources.ovirt.org/pub/yum-repo/ovirt-release44.rpm'
-else
-    OVIRT_RELEASE_URL='https://resources.ovirt.org/pub/yum-repo/ovirt-release43.rpm'
 fi
 
 # $repo_virtio_win, $repo_adv_virt, $repo_ovirt
