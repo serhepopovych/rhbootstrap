@@ -2942,6 +2942,14 @@ if [ -n "${grp_virt_host-}" ]; then
     else
         pkg_qemu_xen=
     fi
+
+    if [ -n "$repo_openstack" -o -n "$repo_ovirt" ]; then
+        if [ -n "${pkg_openvswitch-}" ]; then
+            PKGS="$PKGS openvswitch"
+
+            [ -z "${pkg_openvswitch_ipsec-}" ] || PKGS="$PKGS openvswitch-ipsec"
+        fi
+    fi
 fi # [ -n "${grp_virt_host-}" ]
 
 if [ -n "${grp_virt_guest-}" ]; then
