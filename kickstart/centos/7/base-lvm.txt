@@ -63,6 +63,12 @@ services --enabled=chronyd,ipset,iptables,ip6tables
 -iprutils
 #-kexec-tools
 #-xfsprogs
+-sssd*
+
+tar
+bzip2
+gzip
+xz
 
 postfix
 
