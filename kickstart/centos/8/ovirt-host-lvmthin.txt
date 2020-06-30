@@ -1,0 +1,142 @@
+#version=RHEL8
+
+# Use graphical or text install?
+text
+## Use NFS as installation source
+#nfs --server=203.0.113.1 --dir=/srv/nfs/linux/redhat/centos/8.2/amd64/iso-root
+# Use HTTP mirrors as installation source
+url --mirrorlist=http://mirrorlist.centos.org/?release=8&arch=x86_64&repo=BaseOS
+# Add repos during install
+repo --name=AppStream --mirrorlist=http://mirrorlist.centos.org/?release=8&arch=x86_64&repo=AppStream
+
+# Accept EULA
+eula --accepted
+# Run the Setup Agent on first boot
+firstboot --disable
+# Reboot system on finish
+reboot
+
+# Keyboard layouts
+keyboard us --vckeymap=us --xlayouts='us'
+# System language
+lang en_US.UTF-8
+
+# Root password
+rootpw --iscrypted --lock *
+# User account
+user --name=setup --groups=wheel --gecos="Setup user" --plaintext --password=setup
+
+# System timezone
+timezone UTC --utc
+
+# Network information
+network --device=link --bootproto=dhcp --ipv6=auto --hostname=localhost.localdomain --no-activate
+
+# System services
+services --enabled=chronyd,ipset,iptables,ip6tables
+
+%include /tmp/storage.txt
+
+%packages
+
+@core --nodefaults
+
+-aic94xx-firmware
+-alsa*
+-ivtv*firmware
+-iwl*firmware
+-libertas*
+#-NetworkManager*
+-wpa_supplicant
+#-teamd
+#-tuned
+#-firewalld
+-plymouth*
+#-parted
+-iprutils
+#-kexec-tools
+#-xfsprogs
+-sssd*
+
+tar
+bzip2
+gzip
+xz
+
+postfix
+
+chrony
+
+rsyslog
+logrotate
+
+cronie
+
+sudo
+telnet
+
+iptables-services
+ipset-service
+conntrack-tools
+
+gdisk
+
+mc
+tmux
+
+mtr
+tcpdump
+
+strace
+lsof
+
+%end
+
+#%addon com_redhat_kdump --enable --reserve-mb='auto'
+#%end
+
+%anaconda
+pwpolicy root --minlen=6 --minquality=1 --notstrict --nochanges --notempty
+pwpolicy user --minlen=6 --minquality=1 --notstrict --nochanges --emptyok
+pwpolicy luks --minlen=6 --minquality=1 --notstrict --nochanges --notempty
+%end
+
+%pre
+
+device_name='/dev/vda'
+if [ ! -b "$device_name" ]; then
+    device_name='/dev/xvda'
+    if [ ! -b "$device_name" ]; then
+        device_name='/dev/sda'
+    fi
+fi
+
+cat >'/tmp/storage.txt' <<EOF
+
+# Partition clearing information
+zerombr
+clearpart --drives=$device_name --all --disklabel=gpt
+
+# Disk partitioning information
+part biosboot   --fstype="biosboot" --ondisk=$device_name --size=1
+part /boot      --fstype="ext2"     --ondisk=$device_name --size=512  --label=BOOT
+part /boot/efi  --fstype="efi"      --ondisk=$device_name --size=256  --label=ESP
+part pv.1742                        --ondisk=$device_name --size=56320 --grow
+
+# Logical Volume Management (LVM)
+volgroup cl pv.1742 --reserved-percent=20
+
+logvol swap  --vgname=cl --name=swap --fstype=swap --recommended --label=SWAP
+logvol none  --vgname=cl --name=pool0 --thinpool --size=43008 --grow
+logvol /              --vgname=cl --name=root          --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=6144  --label=ROOT --maxsize=10240 --grow
+logvol /var           --vgname=cl --name=var           --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=15360 --label=VAR
+logvol /var/crash     --vgname=cl --name=var_crash     --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=10240 --label=VAR_CRASH
+logvol /var/log       --vgname=cl --name=var_log       --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=8192  --label=VAR_LOG
+logvol /var/log/audit --vgname=cl --name=var_log_audit --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=2048  --label=VAR_LOG_AUDIT
+logvol /home          --vgname=cl --name=home          --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=1024  --label=HOME
+
+# System bootloader configuration
+bootloader --append=" crashkernel=auto zswap.enabled=1 nosmt" --location=mbr --boot-drive=$device_name
+EOF
+
+%end
