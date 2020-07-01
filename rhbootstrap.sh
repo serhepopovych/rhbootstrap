@@ -2182,6 +2182,17 @@ fi
 ## Update repos data (e.g. import PGP keys) and possibly installed packages
 
 if [ -n "$has_repo" ]; then
+    # $cc
+    if [ -n "$cc" ]; then
+        for f in "$install_root/etc/yum.repos.d"/*.repo; do
+            if [ -f "$f" ]; then
+                sed -i "$f" -e '/^mirrorlist=/!b;/cc=.\+/b;s/.\+/\0\&cc=$cc/'
+            fi
+        done
+
+        unset f
+    fi
+
     chroot "$install_root" yum -y update
 fi
 
