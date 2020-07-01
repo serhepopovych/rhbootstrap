@@ -3510,6 +3510,8 @@ if [ -n "${has_de-}" ]; then
 
     # virt-manager
     [ -z "${pkg_virt_manager-}" ] || PKGS="$PKGS virt-manager"
+    # virt-viewer
+    [ -z "${pkg_virt_viewer-}" ] || PKGS="$PKGS virt-viewer"
 
     # wireshark
     if [ -n "${pkg_wireshark-}" ]; then
