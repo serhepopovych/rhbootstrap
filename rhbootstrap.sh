@@ -2489,7 +2489,10 @@ normalize_path()
 		[ -d "$path" ] || return
 	fi
 
-	cd "${path}" && path="${PWD%/}/${file:+$file}" && cd - >/dev/null
+	cd "${path}" &&
+		path="${PWD%/}/${file}" &&
+	cd - >/dev/null
+
 	return_var $? "$path" "${2-}"
 }
 
@@ -2505,8 +2508,8 @@ relative_path()
 	[ -n "${rp_dst##*/}" ] || rp_dst="${rp_dst}${rp_src##*/}"
 
 	# normalize pathes first
-	normalize_path "${rp_src}" rp_src && rp_src="${rp_src%/}" || return
-	normalize_path "${rp_dst}" rp_dst && rp_dst="${rp_dst%/}" || return
+	normalize_path "${rp_src}" rp_src || return
+	normalize_path "${rp_dst}" rp_dst || return
 
 	# strip leading and add trailing '/'
 	rp_src="${rp_src#/}/"
