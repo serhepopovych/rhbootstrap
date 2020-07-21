@@ -3056,6 +3056,7 @@ if [ -n "${pkg_xfce-}" ]; then
         xfce4-about
         xfce4-taskmanager
         xfce4-terminal
+        xfce4-screensaver
         xfce4-screenshooter
         xfce4-notifyd
     "
