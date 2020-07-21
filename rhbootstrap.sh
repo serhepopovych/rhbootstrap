@@ -3434,11 +3434,15 @@ if [ -n "${has_de-}" ]; then
         # qmmp
         [ -z "${pkg_qmmp-}" ] || PKGS="$PKGS qmmp"
 
+        # deadbeef
         [ -z "$repo_rpm_fusion" -o -z "${pkg_deadbeef-}" ] ||
             PKGS="$PKGS deadbeef"
         # vlc
         [ -z "$repo_rpm_fusion" -o -z "${pkg_vlc-}" ] ||
             PKGS="$PKGS vlc"
+
+        # dia
+        [ -z "${pkg_dia-}" ] || PKGS="$PKGS dia"
 
         # xchm
         [ -z "$repo_nux_dextop" -o -z "${pkg_xchm-}" ] ||
