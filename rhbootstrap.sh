@@ -1876,7 +1876,11 @@ if [ -n "$cc" ]; then
 
     for f in "$install_root/etc/yum.repos.d"/*.repo; do
         if [ -f "$f" ]; then
-            sed -i "$f" -e '/^mirrorlist=/!b;/cc=.\+/b;s/.\+/\0\&cc=$cc/'
+            sed -i "$f" \
+                -e '/^mirrorlist=.\+\/\?[^=]\+=[^=]*/!b' \
+                -e '/&cc=.\+/b' \
+                -e 's/.\+/\0\&cc=$cc/' \
+                #
         fi
     done
 
@@ -2186,7 +2190,11 @@ if [ -n "$has_repo" ]; then
     if [ -n "$cc" ]; then
         for f in "$install_root/etc/yum.repos.d"/*.repo; do
             if [ -f "$f" ]; then
-                sed -i "$f" -e '/^mirrorlist=/!b;/cc=.\+/b;s/.\+/\0\&cc=$cc/'
+                sed -i "$f" \
+                    -e '/^mirrorlist=.\+\/\?[^=]\+=[^=]*/!b' \
+                    -e '/&cc=.\+/b' \
+                    -e 's/.\+/\0\&cc=$cc/' \
+                    #
             fi
         done
 
