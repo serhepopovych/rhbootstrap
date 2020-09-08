@@ -231,8 +231,8 @@ in_chroot_exec()
 
 # System processor (CPU) architecture (default: running system)
 arch="$(uname -m)"
-# CentOS release version (default: 7)
-releasever=7
+# CentOS release version (default: 8)
+releasever=8
 
 # rpm(8) install options (default: all)
 install_langs=''
