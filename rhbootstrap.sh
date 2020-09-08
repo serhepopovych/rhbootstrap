@@ -1748,7 +1748,7 @@ _EOF
                 'grub2-mkconfig -o "$(readlink /etc/grub2.cfg)"'
         fi
 
-        if [ -n "$nodocs" ];then
+        if [ -n "$nodocs" ]; then
             # Directories not excluded from install. They are empty.
             find "$install_root/usr/share/doc" -type d -a -empty -a -delete
         fi
