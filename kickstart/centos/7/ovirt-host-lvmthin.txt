@@ -131,17 +131,17 @@ part /boot/efi  --fstype="efi"      --ondisk=$device_name --size=256  --label=ES
 part pv.1742                        --ondisk=$device_name --size=56320 --grow
 
 # Logical Volume Management (LVM)
-volgroup centos pv.1742 --reserved-percent=20
+volgroup cl pv.1742 --reserved-percent=20
 
-logvol none  --vgname=centos --name=pool0 --thinpool --size=43008 --grow
+logvol none  --vgname=cl --name=pool0 --thinpool --size=43008 --grow
 
-logvol swap           --vgname=centos --name=swap          --thin --poolname=pool0 --fstype=swap --recommended --label=SWAP
-logvol /              --vgname=centos --name=root          --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=6144  --label=ROOT --maxsize=10240 --grow
-logvol /var           --vgname=centos --name=var           --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=15360 --label=VAR
-logvol /var/crash     --vgname=centos --name=var_crash     --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=10240 --label=VAR_CRASH
-logvol /var/log       --vgname=centos --name=var_log       --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=8192  --label=VAR_LOG
-logvol /var/log/audit --vgname=centos --name=var_log_audit --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=2048  --label=VAR_LOG_AUDIT
-logvol /home          --vgname=centos --name=home          --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=1024  --label=HOME
+logvol swap           --vgname=cl --name=swap          --thin --poolname=pool0 --fstype=swap --recommended --label=SWAP
+logvol /              --vgname=cl --name=root          --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=6144  --label=ROOT --maxsize=10240 --grow
+logvol /var           --vgname=cl --name=var           --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=15360 --label=VAR
+logvol /var/crash     --vgname=cl --name=var_crash     --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=10240 --label=VAR_CRASH
+logvol /var/log       --vgname=cl --name=var_log       --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=8192  --label=VAR_LOG
+logvol /var/log/audit --vgname=cl --name=var_log_audit --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=2048  --label=VAR_LOG_AUDIT
+logvol /home          --vgname=cl --name=home          --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=1024  --label=HOME
 
 # System bootloader configuration
 bootloader --append=" crashkernel=auto zswap.enabled=1 nosmt" --location=mbr --boot-drive=$device_name

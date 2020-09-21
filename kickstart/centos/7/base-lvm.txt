@@ -131,11 +131,12 @@ part /boot/efi  --fstype="efi"      --ondisk=$device_name --size=256  --label=ES
 part pv.1742                        --ondisk=$device_name --size=9216 --maxsize=18432 --grow
 
 # Logical Volume Management (LVM)
-volgroup centos pv.1742
-logvol /home --vgname=centos --name=home --fstype=ext4 --size=1024 --label=HOME
-logvol /var  --vgname=centos --name=var  --fstype=ext4 --size=2048 --label=VAR
-logvol /     --vgname=centos --name=root --fstype=ext4 --size=5120 --label=ROOT
-logvol swap  --vgname=centos --name=swap --fstype=swap --size=1024 --label=SWAP
+volgroup cl pv.1742
+
+logvol /home --vgname=cl --name=home --fstype=ext4 --size=1024 --label=HOME
+logvol /var  --vgname=cl --name=var  --fstype=ext4 --size=2048 --label=VAR
+logvol /     --vgname=cl --name=root --fstype=ext4 --size=5120 --label=ROOT
+logvol swap  --vgname=cl --name=swap --fstype=swap --size=1024 --label=SWAP
 
 # System bootloader configuration
 bootloader --append=" crashkernel=auto zswap.enabled=1 nosmt" --location=mbr --boot-drive=$device_name
