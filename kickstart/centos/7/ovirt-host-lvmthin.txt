@@ -133,9 +133,9 @@ part pv.1742                        --ondisk=$device_name --size=56320 --grow
 # Logical Volume Management (LVM)
 volgroup centos pv.1742 --reserved-percent=20
 
-logvol swap  --vgname=centos --name=swap --fstype=swap --recommended --label=SWAP
 logvol none  --vgname=centos --name=pool0 --thinpool --size=43008 --grow
 
+logvol swap           --vgname=centos --name=swap          --thin --poolname=pool0 --fstype=swap --recommended --label=SWAP
 logvol /              --vgname=centos --name=root          --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=6144  --label=ROOT --maxsize=10240 --grow
 logvol /var           --vgname=centos --name=var           --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=15360 --label=VAR
 logvol /var/crash     --vgname=centos --name=var_crash     --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=10240 --label=VAR_CRASH

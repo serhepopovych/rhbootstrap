@@ -126,8 +126,9 @@ part pv.1742                        --ondisk=$device_name --size=29696 --grow
 # Logical Volume Management (LVM)
 volgroup cl pv.1742 --reserved-percent=20
 
-logvol swap  --vgname=cl --name=swap --fstype=swap --recommended --label=SWAP
 logvol none  --vgname=cl --name=pool0 --thinpool --size=10240 --grow
+
+logvol swap  --vgname=cl --name=swap  --thin --poolname=pool0 --fstype=swap --recommended --label=SWAP
 logvol /     --vgname=cl --name=root  --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=5120 --label=ROOT --maxsize=10240 --grow
 logvol /var  --vgname=cl --name=var   --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=3072 --label=VAR
 logvol /home --vgname=cl --name=home  --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=1024 --label=HOME
