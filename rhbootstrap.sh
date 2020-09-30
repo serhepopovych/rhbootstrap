@@ -794,9 +794,9 @@ if [ $releasever -eq 8 ]; then
     # Base
     CENTOS_URL="http://mirror.centos.org/centos/$releasever/BaseOS/$arch/os/Packages"
     CENTOS_RPMS="
-        centos-release-8.2-2.2004.0.1.el8.$arch.rpm
-        centos-repos-8.2-2.2004.0.1.el8.$arch.rpm
-        centos-gpg-keys-8.2-2.2004.0.1.el8.noarch.rpm
+        centos-release-8.2-2.2004.0.2.el8.$arch.rpm
+        centos-repos-8.2-2.2004.0.2.el8.$arch.rpm
+        centos-gpg-keys-8.2-2.2004.0.2.el8.noarch.rpm
     "
     # EPEL
     EPEL_URL='https://dl.fedoraproject.org/pub/epel'
