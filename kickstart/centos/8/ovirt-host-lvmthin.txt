@@ -114,6 +114,12 @@ if [ ! -b "$device_name" ]; then
     fi
 fi
 
+if grep -q '\(^\|\s\+\)ks\.luks\(\s\+\|$\)' /proc/cmdline; then
+    pv_opts='--encrypted --passphrase="setup"'
+else
+    pv_opts=''
+fi
+
 cat >'/tmp/storage.txt' <<EOF
 
 # Partition clearing information
@@ -124,7 +130,7 @@ clearpart --drives=$device_name --all --disklabel=gpt
 part biosboot   --fstype="biosboot" --ondisk=$device_name --size=1
 part /boot      --fstype="ext2"     --ondisk=$device_name --size=512  --label=BOOT
 part /boot/efi  --fstype="efi"      --ondisk=$device_name --size=256  --label=ESP
-part pv.1742                        --ondisk=$device_name --size=56320 --grow
+part pv.1742                        --ondisk=$device_name --size=56320 --grow $pv_opts
 
 # Logical Volume Management (LVM)
 volgroup cl pv.1742 --reserved-percent=20

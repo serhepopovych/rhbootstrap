@@ -121,6 +121,12 @@ if [ ! -b "$device_name" ]; then
     fi
 fi
 
+if grep -q '\(^\|\s\+\)ks\.luks\(\s\+\|$\)' /proc/cmdline; then
+    pv_opts='--encrypted --passphrase="setup"'
+else
+    pv_opts=''
+fi
+
 cat >'/tmp/storage.txt' <<EOF
 
 # Partition clearing information
@@ -132,7 +138,7 @@ part biosboot   --fstype="biosboot" --ondisk=$device_name --size=1
 part /boot      --fstype="ext2"     --ondisk=$device_name --size=512  --label=BOOT
 part /boot/efi  --fstype="efi"      --ondisk=$device_name --size=256  --label=ESP
 part swap                           --ondisk=$device_name --size=1024 --label=SWAP
-part btrfs.1742 --fstype="btrfs"    --ondisk=$device_name --size=1536 --fsoptions="noatime,compress"
+part btrfs.1742 --fstype="btrfs"    --ondisk=$device_name --size=1536 --fsoptions="noatime,compress" $pv_opts
 
 btrfs none  --data=single --metadata=single --mkfsoptions="-M" --label=centos  btrfs.1742
 btrfs /home --subvol --name=home LABEL=centos
