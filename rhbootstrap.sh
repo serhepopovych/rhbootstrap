@@ -2985,8 +2985,6 @@ fi # [ -n "${grp_virt_guest-}" ]
 
 # virt-install
 [ -z "${pkg_virt_install-}" ] || PKGS="$PKGS virt-install"
-# virt-p2v
-[ -z "${pkg_virt_p2v-}" ] || PKGS="$PKGS virt-p2v"
 # virt-v2v
 [ -z "${pkg_virt_v2v-}" ] || PKGS="$PKGS virt-v2v"
 
