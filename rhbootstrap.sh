@@ -1744,8 +1744,12 @@ _EOF
 
         # Update GRUB configuration file
         if [ -n "${pkg_grub2-}" ]; then
-            in_chroot "$install_root" \
-                'grub2-mkconfig -o "$(readlink /etc/grub2.cfg)"'
+            in_chroot "$install_root" '
+                 [ ! -L /etc/grub2.cfg ] ||
+                    grub2-mkconfig -o "$(readlink /etc/grub2.cfg)"
+                 [ ! -L /etc/grub2-efi.cfg ] ||
+                    grub2-mkconfig -o "$(readlink /etc/grub2-efi.cfg)"
+            '
         fi
 
         if [ -n "$nodocs" ]; then
