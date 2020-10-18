@@ -2343,6 +2343,15 @@ if [ -n "${pkg_plymouth-}" ]; then
         PKGS="$PKGS plymouth-theme-spinner"
 fi
 
+if [ -z "${grp_efi-}" ]; then
+    if [ -z "${install_root%/}" ]; then
+        # Autodetect EFI if $install_root is '/'
+        if [ -d '/sys/firmware/efi' ]; then
+            grp_efi=1
+        fi
+    fi
+fi
+
 if [ -n "${grp_efi-}" ]; then
     if [ -n "${grp_efi_ia32-}" ]; then
         grp_efi_ia32=1
