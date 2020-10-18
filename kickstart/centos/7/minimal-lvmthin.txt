@@ -114,7 +114,10 @@ device_name='/dev/vda'
 if [ ! -b "$device_name" ]; then
     device_name='/dev/xvda'
     if [ ! -b "$device_name" ]; then
-        device_name='/dev/sda'
+        device_name='/dev/nvme0n1'
+        if [ ! -b "$device_name" ]; then
+            device_name='/dev/sda'
+        fi
     fi
 fi
 
