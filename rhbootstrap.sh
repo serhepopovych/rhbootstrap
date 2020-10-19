@@ -2994,6 +2994,7 @@ fi # [ -n "${grp_virt_host-}" ]
 if [ -n "${grp_virt_guest-}" ]; then
     [ -z "${pkg_open_vm_tools-}" ] || PKGS="$PKGS open-vm-tools"
     [ -z "${pkg_qemu_guest_agent-}" ] || PKGS="$PKGS qemu-guest-agent"
+    [ -z "${pkg_spice_vdagent-}" ] || PKGS="$PKGS spice-vdagent"
 fi # [ -n "${grp_virt_guest-}" ]
 
 # virt-install
