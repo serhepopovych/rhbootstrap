@@ -812,9 +812,7 @@ if [ $releasever -eq 8 ]; then
     OPENSTACK_RELEASE_RPM='centos-release-openstack-ussuri'
 
     # oVirt
-    OVIRT_URL='https://resources.ovirt.org/pub/yum-repo'
-    OVIRT_RELEASE_RPM='ovirt-release44.rpm'
-    OVIRT_RELEASE_URL="$OVIRT_URL/$OVIRT_RELEASE_RPM"
+    OVIRT_RELEASE_RPM='centos-release-ovirt44'
 
     # RPM Fusion
     RPM_FUSION_URL='https://download1.rpmfusion.org/free/el'
@@ -842,9 +840,7 @@ elif [ $releasever -eq 7 ]; then
     OPENSTACK_RELEASE_RPM='centos-release-openstack-train'
 
     # oVirt
-    OVIRT_URL='https://resources.ovirt.org/pub/yum-repo'
-    OVIRT_RELEASE_RPM='ovirt-release43.rpm'
-    OVIRT_RELEASE_URL="$OVIRT_URL/$OVIRT_RELEASE_RPM"
+    OVIRT_RELEASE_RPM='centos-release-ovirt43'
 
     # RPM Fusion
     RPM_FUSION_URL='https://download1.rpmfusion.org/free/el'
@@ -2172,7 +2168,7 @@ fi
 # oVirt
 if [ -n "$repo_ovirt" ]; then
     chroot "$install_root" yum -y --nogpgcheck install \
-        "$OVIRT_RELEASE_URL" && has_repo=1 || repo_ovirt=''
+        "$OVIRT_RELEASE_RPM" && has_repo=1 || repo_ovirt=''
 fi
 
 # RPM Fusion
