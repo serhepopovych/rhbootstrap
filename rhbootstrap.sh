@@ -824,7 +824,7 @@ if [ $releasever -eq 8 ]; then
 elif [ $releasever -eq 7 ]; then
     # Base
     CENTOS_URL="http://mirror.centos.org/centos/$releasever/os/$arch/Packages"
-    CENTOS_RPMS="centos-release-7-8.2003.0.el7.centos.$arch.rpm"
+    CENTOS_RPMS="centos-release-7-9.2009.0.el7.centos.$arch.rpm"
 
     # EPEL
     EPEL_URL='https://dl.fedoraproject.org/pub/epel'
