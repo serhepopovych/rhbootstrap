@@ -249,6 +249,7 @@ minimal_install=''
 # Third-party repositories (e.g. EPEL, ELRepo and Nux Dextop)
 repo_epel=1
 repo_virtio_win=''
+repo_advanced_virtualization=''
 repo_openstack=''
 repo_ovirt=''
 repo_elrepo=''
@@ -350,6 +351,9 @@ Options and their defaults:
     --repo-virtio-win, --no-repo-virtio-win
         Enable/disable VirtIO-Win repository and selected
         packages from it, ignored if oVirt repository enabled
+    --repo-advanced-virtualization, --no-repo-advanced-virtualization
+        Enable/disable Advanced Virtualization repository and senected
+        packages from it, ignored if oVirt or OpenStack repository enabled
     --repo-openstack, --no-repo-openstack
         Enable/disable OpenStack repository and selected
         packages from it, ignored if oVirt repository enabled
@@ -536,6 +540,13 @@ while [ $# -gt 0 ]; do
             ;;
         --repo-virtio-win)
             repo_virtio_win=1
+            ;;
+        # Advanced Virtualization
+        --no-repo-advanced-virtualization)
+            repo_advanced_virtualization=''
+            ;;
+        --repo-advanced-virtualization)
+            repo_advanced_virtualization=1
             ;;
         # OpenStack
         --no-repo-openstack)
@@ -808,6 +819,9 @@ if [ $releasever -eq 8 ]; then
     ELREPO_RELEASE_RPM='elrepo-release-8.el8.elrepo.noarch.rpm'
     ELREPO_RELEASE_URL="$ELREPO_URL/$ELREPO_RELEASE_RPM"
 
+    # Advanced Virtualization
+    ADVANCED_VIRTUALIZATION_RELEASE_RPM='centos-release-advanced-virtualization'
+
     # OpenStack
     OPENSTACK_RELEASE_RPM='centos-release-openstack-ussuri'
 
@@ -836,6 +850,9 @@ elif [ $releasever -eq 7 ]; then
     ELREPO_RELEASE_RPM='elrepo-release-7.el7.elrepo.noarch.rpm'
     ELREPO_RELEASE_URL="$ELREPO_URL/$ELREPO_RELEASE_RPM"
 
+    # Advanced Virtualization
+    ADVANCED_VIRTUALIZATION_RELEASE_RPM='centos-release-qemu-ev'
+
     # OpenStack
     OPENSTACK_RELEASE_RPM='centos-release-openstack-train'
 
@@ -858,10 +875,18 @@ fi
 # VirtIO-Win
 VIRTIO_WIN_URL='https://fedorapeople.org/groups/virt/virtio-win/virtio-win.repo'
 
-# $repo_virtio_win, $repo_openstack, $repo_ovirt
+# $repo_ovirt
 if [ -n "$repo_ovirt" ]; then
     repo_openstack=''
     repo_virtio_win=''
+    repo_advanced_virtualization=''
+fi
+
+# $repo_openstack
+if [ -n "$repo_openstack" ]; then
+    repo_ovirt=''
+    repo_virtio_win=''
+    repo_advanced_virtualization=''
 fi
 
 # $repo_epel, $repo_rpm_fusion, $repo_nux_dextop
@@ -2159,6 +2184,13 @@ if [ -n "$repo_virtio_win" ]; then
         #
 fi
 
+# Advanced Virtualization
+if [ -n "$repo_advanced_virtualization" ]; then
+    chroot "$install_root" yum -y --nogpgcheck install \
+        "$ADVANCED_VIRTUALIZATION_RELEASE_RPM" \
+    && has_repo=1 || repo_advanced_virtualization=''
+fi
+
 # OpenStack
 if [ -n "$repo_openstack" ]; then
     chroot "$install_root" yum -y --nogpgcheck install \
@@ -2939,7 +2971,15 @@ if [ -n "${grp_virt_host-}" ]; then
 
     # qemu-kvm
     if [ -n "${pkg_qemu_kvm-}" ]; then
-        if [ $releasever -eq 7 -a -n "$repo_openstack" ]; then
+        f=''
+        if [ $releasever -eq 7 ]; then
+            [ -z "$repo_openstack" -a \
+              -z "$repo_ovirt" -a \
+              -z "$repo_advanced_virtualization" \
+            ] || f='ev'
+        fi
+
+        if [ -n "$f" ]; then
             PKGS="$PKGS qemu-kvm-ev"
         else
             PKGS="$PKGS qemu-kvm"
