@@ -246,7 +246,7 @@ config=''
 # Exit after installing minimal system
 minimal_install=''
 
-# Third-party repositories (e.g. EPEL, ELRepo and Nux Dextop)
+# Third-party repositories (e.g. EPEL, ELRepo and RPM Fusion)
 repo_epel=1
 repo_virtio_win=''
 repo_advanced_virtualization=''
@@ -254,7 +254,6 @@ repo_openstack=''
 repo_ovirt=''
 repo_elrepo=''
 repo_rpm_fusion=''
-repo_nux_dextop=''
 
 # NFS root
 nfs_root=''
@@ -364,9 +363,6 @@ Options and their defaults:
         Enable/disable ELRepo and selected packages from it
     --repo-rpm-fusion, --no-repo-rpm-fusion
         Enable/disable RPM Fusion and selected packages from it
-    --repo-nux-dextop, --no-repo-nux-dextop
-        Enable/disable Nux Dextop and selected packages from it.
-        CentOS 7 only, ignored for CentOS 8
 
     --nfs-root
         Prepare bootstrapped system for use as NFS root and make initramfs
@@ -575,13 +571,6 @@ while [ $# -gt 0 ]; do
             ;;
         --repo-rpm-fusion)
             repo_rpm_fusion=1
-            ;;
-        # Nux Dextop
-        --no-repo-nux-dextop)
-            repo_nux_dextop=''
-            ;;
-        --repo-nux-dextop)
-            repo_nux_dextop=1
             ;;
 
         --nfs-root)
@@ -832,9 +821,6 @@ if [ $releasever -eq 8 ]; then
     RPM_FUSION_URL='https://download1.rpmfusion.org/free/el'
     RPM_FUSION_RELEASE_RPM='rpmfusion-free-release-8.noarch.rpm'
     RPM_FUSION_RELEASE_URL="$RPM_FUSION_URL/$RPM_FUSION_RELEASE_RPM"
-
-    # No Nux Dextop for RHEL8 at the moment
-    repo_nux_dextop=
 elif [ $releasever -eq 7 ]; then
     # Base
     CENTOS_URL="http://mirror.centos.org/centos/$releasever/os/$arch/Packages"
@@ -863,11 +849,6 @@ elif [ $releasever -eq 7 ]; then
     RPM_FUSION_URL='https://download1.rpmfusion.org/free/el'
     RPM_FUSION_RELEASE_RPM='rpmfusion-free-release-7.noarch.rpm'
     RPM_FUSION_RELEASE_URL="$RPM_FUSION_URL/$RPM_FUSION_RELEASE_RPM"
-
-    # Nux Dextop
-    NUX_DEXTOP_URL='http://li.nux.ro/download/nux'
-    NUX_DEXTOP_RELEASE_RPM='nux-dextop-release-0-5.el7.nux.noarch.rpm'
-    NUX_DEXTOP_RELEASE_URL="$NUX_DEXTOP_URL/dextop/el7/$arch/$NUX_DEXTOP_RELEASE_RPM"
 else
     fatal 'unsupported CentOS version: %u\n' "$releasever"
 fi
@@ -889,8 +870,8 @@ if [ -n "$repo_openstack" ]; then
     repo_advanced_virtualization=''
 fi
 
-# $repo_epel, $repo_rpm_fusion, $repo_nux_dextop
-if [ -n "$repo_rpm_fusion" -o -n "$repo_nux_dextop" ]; then
+# $repo_epel, $repo_rpm_fusion
+if [ -n "$repo_rpm_fusion" ]; then
     repo_epel=1
 fi
 
@@ -2209,12 +2190,6 @@ if [ -n "$repo_rpm_fusion" ]; then
         "$RPM_FUSION_RELEASE_URL" && has_repo=1 || repo_rpm_fusion=''
 fi
 
-# Nux Dextop
-if [ -n "$repo_nux_dextop" ]; then
-    chroot "$install_root" yum -y --nogpgcheck install \
-        "$NUX_DEXTOP_RELEASE_URL" && has_repo=1 || repo_nux_dextop=''
-fi
-
 ## Update repos data (e.g. import PGP keys) and possibly installed packages
 
 if [ -n "$has_repo" ]; then
@@ -2803,7 +2778,6 @@ fi
 [ -z "${pkg_zip-}" ] || PKGS="$PKGS zip"
 
 [ -z "${pkg_unzip-}" ] || PKGS="$PKGS unzip"
-[ -z "$repo_nux_dextop" -o -z "${pkg_unrar-}" ] || PKGS="$PKGS unrar"
 
 [ -z "${pkg_mc-}" ] || PKGS="$PKGS mc"
 
@@ -3500,10 +3474,6 @@ if [ -n "${has_de-}" ]; then
         # dia
         [ -z "${pkg_dia-}" ] || PKGS="$PKGS dia"
 
-        # xchm
-        [ -z "$repo_nux_dextop" -o -z "${pkg_xchm-}" ] ||
-            PKGS="$PKGS xchm"
-
         # keepassx2/keepassxc
         if [ -n "${pkg_keepassx2-}" ]; then
             if [ $releasever -le 7 ]; then
@@ -3537,10 +3507,6 @@ if [ -n "${has_de-}" ]; then
             if [ -n "${gtk_based_de-}" ]; then
                 # remmina-plugins-secret
                 PKGS="$PKGS remmina-plugins-secret"
-                if [ -n "$repo_nux_dextop" ]; then
-                    # remmina-plugins-gnome
-                    PKGS="$PKGS remmina-plugins-gnome"
-                fi
             fi
         fi
 
@@ -3788,12 +3754,6 @@ if [ -n "${pkg_va-}" ]; then
         # libva-intel-hybrid-driver
         [ -z "${pkg_va_intel_hybrid_driver-}" ] ||
             PKGS="$PKGS libva-intel-hybrid-driver"
-    fi
-
-    if [ -n "$repo_nux_dextop" ]; then
-        # libva-intel-driver
-        [ -z "${pkg_va_intel_driver-}" ] ||
-            PKGS="$PKGS libva-intel-driver"
     fi
 fi
 
