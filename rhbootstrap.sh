@@ -24,7 +24,7 @@
 
 # Requires: mountpoint(1), chroot(1), find(1), xargs(1), install(1), dd(1),
 #           sed(1), mv(1), rm(1), ln(1), cat(1), rpm(1), yum(1), curl(1), id(1),
-#           uname(1), mount(8), umount(8)
+#           uname(1), mount(8), umount(8), setarch(8), chmod(1)
 
 # Set option(s)
 set -e
@@ -208,7 +208,9 @@ _in_chroot()
     local _in_chroot_exec="${_in_chroot_exec-}"
     [ -z  "${_in_chroot_exec}" ] || _in_chroot_exec='exec'
 
-    ${_in_chroot_exec} chroot "$dir" /bin/sh -c "$@" || return
+    ${_in_chroot_exec} setarch "$basearch" \
+        chroot "$dir" /bin/sh -c "$@" ||
+    return
 }
 
 # Usage: in_chroot <dir> <cmd> [<arg> ...]
@@ -246,7 +248,7 @@ config=''
 # Exit after installing minimal system
 minimal_install=''
 
-# Third-party repositories (e.g. EPEL, ELRepo and RPM Fusion)
+# External repositories (e.g. EPEL, ELRepo and RPM Fusion)
 repo_epel=1
 repo_virtio_win=''
 repo_advanced_virtualization=''
@@ -327,7 +329,7 @@ Usage: $prog_name [options] [<install_root>]
 Options and their defaults:
     --arch=$arch
         System processor (CPU) architecture to install packages for.
-        Only AMD64 (x86_64) supported at the moment
+        Only AMD64 (x86_64) and i386 supported at the moment
     --releasever=$releasever
         Supported CentOS release version
 
@@ -780,6 +782,7 @@ trap - EXIT
 # $arch, $basearch
 case "$arch" in
     x86_64) basearch='x86_64' ;;
+    i?86)   basearch='i386'   ;;
     *)      fatal 'Unsupported architecture "%s"\n' "$arch" ;;
 esac
 
@@ -788,92 +791,6 @@ case "$selinux" in
     enforcing|permissive|disabled|'') ;;
     *) fatal 'Unknown SELinux mode "%s"\n' "$selinux" ;;
 esac
-
-# $releasever
-if [ $releasever -eq 8 ]; then
-    # Base
-    CENTOS_URL="http://mirror.centos.org/centos/$releasever/BaseOS/$arch/os/Packages"
-    CENTOS_RPMS="
-        centos-release-8.2-2.2004.0.2.el8.$arch.rpm
-        centos-repos-8.2-2.2004.0.2.el8.$arch.rpm
-        centos-gpg-keys-8.2-2.2004.0.2.el8.noarch.rpm
-    "
-    # EPEL
-    EPEL_URL='https://dl.fedoraproject.org/pub/epel'
-    EPEL_RELEASE_RPM='epel-release-latest-8.noarch.rpm'
-    EPEL_RELEASE_URL="$EPEL_URL/$EPEL_RELEASE_RPM"
-
-    # ELRepo
-    ELREPO_URL='https://www.elrepo.org'
-    ELREPO_RELEASE_RPM='elrepo-release-8.el8.elrepo.noarch.rpm'
-    ELREPO_RELEASE_URL="$ELREPO_URL/$ELREPO_RELEASE_RPM"
-
-    # Advanced Virtualization
-    ADVANCED_VIRTUALIZATION_RELEASE_RPM='centos-release-advanced-virtualization'
-
-    # OpenStack
-    OPENSTACK_RELEASE_RPM='centos-release-openstack-ussuri'
-
-    # oVirt
-    OVIRT_RELEASE_RPM='centos-release-ovirt44'
-
-    # RPM Fusion
-    RPM_FUSION_URL='https://download1.rpmfusion.org/free/el'
-    RPM_FUSION_RELEASE_RPM='rpmfusion-free-release-8.noarch.rpm'
-    RPM_FUSION_RELEASE_URL="$RPM_FUSION_URL/$RPM_FUSION_RELEASE_RPM"
-elif [ $releasever -eq 7 ]; then
-    # Base
-    CENTOS_URL="http://mirror.centos.org/centos/$releasever/os/$arch/Packages"
-    CENTOS_RPMS="centos-release-7-9.2009.0.el7.centos.$arch.rpm"
-
-    # EPEL
-    EPEL_URL='https://dl.fedoraproject.org/pub/epel'
-    EPEL_RELEASE_RPM='epel-release-latest-7.noarch.rpm'
-    EPEL_RELEASE_URL="$EPEL_URL/$EPEL_RELEASE_RPM"
-
-    # ELRepo
-    ELREPO_URL='https://www.elrepo.org'
-    ELREPO_RELEASE_RPM='elrepo-release-7.el7.elrepo.noarch.rpm'
-    ELREPO_RELEASE_URL="$ELREPO_URL/$ELREPO_RELEASE_RPM"
-
-    # Advanced Virtualization
-    ADVANCED_VIRTUALIZATION_RELEASE_RPM='centos-release-qemu-ev'
-
-    # OpenStack
-    OPENSTACK_RELEASE_RPM='centos-release-openstack-train'
-
-    # oVirt
-    OVIRT_RELEASE_RPM='centos-release-ovirt43'
-
-    # RPM Fusion
-    RPM_FUSION_URL='https://download1.rpmfusion.org/free/el'
-    RPM_FUSION_RELEASE_RPM='rpmfusion-free-release-7.noarch.rpm'
-    RPM_FUSION_RELEASE_URL="$RPM_FUSION_URL/$RPM_FUSION_RELEASE_RPM"
-else
-    fatal 'unsupported CentOS version: %u\n' "$releasever"
-fi
-
-# VirtIO-Win
-VIRTIO_WIN_URL='https://fedorapeople.org/groups/virt/virtio-win/virtio-win.repo'
-
-# $repo_ovirt
-if [ -n "$repo_ovirt" ]; then
-    repo_openstack=''
-    repo_virtio_win=''
-    repo_advanced_virtualization=''
-fi
-
-# $repo_openstack
-if [ -n "$repo_openstack" ]; then
-    repo_ovirt=''
-    repo_virtio_win=''
-    repo_advanced_virtualization=''
-fi
-
-# $repo_epel, $repo_rpm_fusion
-if [ -n "$repo_rpm_fusion" ]; then
-    repo_epel=1
-fi
 
 # $cc handled after release package(s) installation
 
@@ -1071,13 +988,47 @@ exit_handler()
 {
     local rc=$?
     local t
+    local systemctl_helper="$install_root/bin/systemctl"
 
     # Do not interrupt exit handler
     set +e
 
-    ## Finish installation
-
     if [ $rc -eq 0 ]; then
+        ## Add helpers
+
+        t='type systemctl >/dev/null 2>&1'
+        if [ -e "$systemctl_helper" ] ||
+           $(in_chroot_exec "$install_root" "$t"); then
+            systemctl_helper=''
+        else
+            install -d "${systemctl_helper%/*}" ||:
+            cat >"$systemctl_helper" <<'_EOF'
+#!/bin/sh
+
+set -e
+set -u
+#set -x
+
+# See how we are called
+case "${1-}" in
+    'mask'|'disable'|'stop')   cmd='off' ;;
+    'unmask'|'enable'|'start') cmd='on'  ;;
+    *) exit 1
+esac
+
+while :; do
+    shift || exit
+    name="${1-}" && name="${name%.*}"
+    [ -z "$name" ] || chkconfig "$name" "$cmd"
+done
+
+exit 0
+_EOF
+            chmod a+rx "$systemctl_helper" ||:
+        fi
+
+        ## Finish installation
+
         if [ -n "${pkg_grub2-}" ]; then
             # Add default GRUB config
             t="$install_root/etc/default/grub"
@@ -1117,7 +1068,6 @@ _EOF
             if [ -n "$nosmt" ]; then
                 $(
                     # Source in subshell to not pollute environment
-
                     . "$t"
 
                     if v="${GRUB_CMDLINE_LINUX-}" &&
@@ -1401,17 +1351,17 @@ _EOF
             )
         fi # [ -n "$login_banners" ]
 
-        # Disable lvmetad on CentOS/RHEL 7 to conform to 8+
-        if [ $releasever -eq 7 ]; then
+        # Disable lvmetad on CentOS/RHEL 7- to conform to 8+
+        if [ $releasemaj -le 7 ]; then
             t="$install_root/etc/lvm/lvm.conf"
             if [ -f "$t" ]; then
                 sed -i "$t" \
                     -e '/^\s*use_lvmetad\s*=\s*[0-9]\+\s*$/s/[0-9]/0/' \
                     #
-                chroot "$install_root" \
-                    systemctl mask lvm2-lvmetad.service lvm2-lvmetad.socket
-                chroot "$install_root" \
-                    systemctl stop lvm2-lvmetad.service lvm2-lvmetad.socket
+                in_chroot "$install_root" \
+                    'systemctl mask lvm2-lvmetad.service lvm2-lvmetad.socket'
+                in_chroot "$install_root" \
+                    'systemctl stop lvm2-lvmetad.service lvm2-lvmetad.socket'
             fi
         fi
 
@@ -1521,41 +1471,42 @@ _EOF
                     tmp_mount=${_tmp_mount}
                 sed -e "s/^\(Options=.\+\)$/\1,size=$tmp_mount%/" "$t" \
                     >"$install_root/etc/systemd/system/${t##*/}"
-                chroot "$install_root" systemctl enable tmp.mount
+                in_chroot "$install_root" 'systemctl enable tmp.mount'
             fi
         fi
 
         # Enable iptables and ip6tables if given
         if [ -n "${pkg_iptables-}" ]; then
-            chroot "$install_root" systemctl enable iptables.service
-            chroot "$install_root" systemctl enable ip6tables.service
+            in_chroot "$install_root" 'systemctl enable iptables.service'
+            in_chroot "$install_root" 'systemctl enable ip6tables.service'
         fi
 
         if [ -x "$install_root/etc/init.d/network" ]; then
             if [ -n "${pkg_network_scripts-}" ]; then
                 # Enable legacy network scripts if they was explicitly enabled
-                chroot "$install_root" systemctl enable network.service
+                in_chroot "$install_root" 'systemctl enable network.service'
             else
                 # Disable legacy network scripts if NetworkManager enabled
                 if [ -n "${pkg_nm-}" ]; then
-                    chroot "$install_root" systemctl disable network.service
+                    in_chroot "$install_root" \
+                        'systemctl disable network.service'
                 fi
             fi
         fi
 
         # Disable lm_sensors as they require explicit configuration
         if [ -n "${pkg_lm_sensors-}" ]; then
-            chroot "$install_root" systemctl disable lm_sensors.service
+            in_chroot "$install_root" 'systemctl disable lm_sensors.service'
         fi
 
         # Enable display-manager.service and set-default to graphical.target
         if [ -n "$has_dm" ]; then
-            chroot "$install_root" systemctl enable "$has_dm.service"
-            chroot "$install_root" systemctl set-default graphical.target
+            in_chroot "$install_root" "systemctl enable '$has_dm.service'"
+            in_chroot "$install_root" 'systemctl set-default graphical.target'
         fi
 
         # Enable postfix as it might be disabled (e.g. on CentOS/RHEL 8)
-        chroot "$install_root" systemctl enable postfix.service
+        in_chroot "$install_root" 'systemctl enable postfix.service'
 
         if [ -n "$readonly_root" ]; then
             # Make postfix readonly root aware
@@ -1593,7 +1544,7 @@ _EOF
 
             # Fix systemd-tmpfiles-setup.service on CentOS/RHEL 7;
             # see https://bugzilla.redhat.com/show_bug.cgi?id=1207083
-            if [ $releasever -eq 7 ]; then
+            if [ $releasemaj -eq 7 ]; then
                 # /usr/lib/tmpfiles.d/legacy.conf: /var/lock -> ../run/lock
                 ln -sf '../run/lock' "$install_root/var/lock"
 
@@ -1740,7 +1691,7 @@ _EOF
         # Make sure /etc/sysconfig/network is here
         t="$install_root/etc/sysconfig/network" && [ -f "$t" ] || : >"$t"
         # Make sure /var/lib/systemd/random-seed is here and empty
-        t="$install_root/var/lib/systemd/random-seed" && : >"$t"
+        t="$install_root/var/lib/systemd" && [ ! -d "$t" ] || : >"$t/random-seed"
         # Make sure /etc/machine-id is here and empty
         t="$install_root/etc/machine-id" && : >"$t"
 
@@ -1760,7 +1711,7 @@ _EOF
         fi
 
         # Clean yum(1) packages and cached data
-        chroot "$install_root" yum -y clean all
+        in_chroot "$install_root" 'yum -y clean all'
 
         # Clean /var/log files
         clean_dir()
@@ -1794,25 +1745,19 @@ _EOF
         clean_dir "$install_root/var/log"
     fi
 
-    if [ -n "${install_root%/}" ]; then
-        # Remove GPG keys from host system
-        if [ $releasever -eq 8 ]; then
-            for t in \
-                '/etc/pki/rpm-gpg/RPM-GPG-KEY-centosofficial' \
-                '/etc/pki/rpm-gpg/RPM-GPG-KEY-centostesting' \
-                #
-            do
-                if [ "$t" -ef "$install_root$t" ]; then
-                    rm -f "$t" ||:
-                fi
-            done
-        fi
+    if [ -n "$systemctl_helper" ]; then
+        rm -f "$systemctl_helper" ||:
+    fi
 
+    if [ -n "${install_root%/}" ]; then
         # Unmount bind-mounted filesystems
-        for t in '/proc' '/sys' '/dev'; do
+        for t in '/proc/1' '/proc' '/sys' '/dev'; do
             t="$install_root$t"
             ! mountpoint -q "$t" || umount "$t"
         done
+
+        t="$install_root/.tmp"
+        rm -rf "$t" ||:
     fi
 
     return $rc
@@ -1826,13 +1771,18 @@ if [ -n "$install_root" ]; then
         install -d "$d" && mount --bind "$f" "$d"
     done
 
-    # Initialize rpmdb(8)
-    rpm --root="$install_root" --rebuilddb
+    # Point /etc/mtab to /proc/self/mounts unless it already exist
+    f="$install_root/etc/mtab"
+    if [ ! -f "$f" ]; then
+        install -D -m 0644 /dev/null "$f"
+        ln -sf '../proc/self/mounts' "$f"
+    fi
 
-    # Install release file(s)
-    for f in $CENTOS_RPMS; do
-        rpm --root="$install_root" -ivh --nodeps -- "$CENTOS_URL/$f"
-    done
+    # Hide /proc/1 from target (e.g. for rpm pre/post scripts)
+    f="$install_root/proc/1"
+    d="$install_root/.tmp/1"
+
+    [ -d "$f" ] && install -d "$d" && mount --bind "$d" "$f" ||:
 
     if [ -n "${install_root%/}" ]; then
         # Need access to resolvers: prefer system, fall back to public
@@ -1846,19 +1796,6 @@ if [ -n "$install_root" ]; then
                 echo "nameserver $f" >>"$d"
             done
         fi
-
-        # CentOS 8 dnf requires GPG key to be in installing host system
-        if [ $releasever -eq 8 ]; then
-            for f in \
-                '/etc/pki/rpm-gpg/RPM-GPG-KEY-centosofficial' \
-                '/etc/pki/rpm-gpg/RPM-GPG-KEY-centostesting' \
-                #
-            do
-                if [ ! -r "$f" ]; then
-                    ln -sf "$install_root$f" "$f"
-                fi
-            done
-        fi
     fi
 
     unset f d
@@ -1866,36 +1803,396 @@ else
     install_root='/'
 fi
 
-# $cc
-
-if [ -n "$cc" ]; then
-    for f in \
-        "$install_root/etc/yum/vars/cc" \
-        "$install_root/etc/dnf/vars/cc" \
-        #
-    do
-        if [ -d "${f%/*}" ]; then
-            [ -s "$f" ] || echo "$cc" >"$f"
-            break
-        fi
-    done
-
-    for f in "$install_root/etc/yum.repos.d"/*.repo; do
-        if [ -f "$f" ]; then
-            sed -i "$f" \
-                -e '/^mirrorlist=.\+\/\?[^=]\+=[^=]*/!b' \
-                -e '/&cc=.\+/b' \
-                -e 's/.\+/\0\&cc=$cc/' \
-                #
-        fi
-    done
-
-    unset f
-fi
-
 ## Install core components
 
-if [ $releasever -ge 8 ]; then
+# repository URLs
+baseurl=''
+updatesurl=''
+# yum(1) does not support certain options
+nogpgcheck=''
+# current or archive version
+is_archive=''
+# has specific feature
+has_glibc_langpack=''
+has_repo=''
+
+# Usage: distro_disable_extra_repos
+distro_disable_extra_repos()
+{
+    # Except EPEL
+    repo_virtio_win=''
+    repo_advanced_virtualization=''
+    repo_openstack=''
+    repo_ovirt=''
+    repo_elrepo=''
+    repo_rpm_fusion=''
+}
+
+# Usage: distro_centos
+distro_centos()
+{
+    # Usage: distro_post_core_hook
+    distro_post_core_hook()
+    {
+        if [ -n "$is_archive" ]; then
+            # Releases available at $baseurl
+            local url="${baseurl%/$releasever/*}"
+
+            local baseurl_p1='^#\?\(baseurl\)=.\+/\$releasever/\(.\+\)$'
+            local baseurl_p2="\1=$url/$releasever/\2"
+
+            find "$install_root/etc/yum.repos.d" \
+                -name 'CentOS-*.repo' -a -type f -a -exec \
+            sed -i \
+                -e 's,^\(mirrorlist\|metalink\)=,#\1=,' \
+                -e "s,$baseurl_p1,$baseurl_p2," \
+            {} \+
+        fi
+
+        if [ $releasemaj -lt 6 ]; then
+            # Add gpgkey= to local file://
+            local t="$install_root"
+            local url
+            url="$t/etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-$releasemaj"
+            if [ ! -f "$url" ]; then
+                url="$t/usr/share/doc/centos-release-$releasemaj/RPM-GPG-KEY"
+                if [ ! -f "$url" ]; then
+                    url=''
+                fi
+            fi
+            if [ -n "$url" ]; then
+                find "$install_root/etc/yum.repos.d" \
+                    -name 'CentOS-*.repo' -a -type f -a -exec \
+                sed -i \
+                    -e '/^gpgkey=/d' \
+                    -e "/^gpgcheck=1/a gpgkey=file://${url#$t}" \
+                {} \+
+            fi
+        fi
+
+        if [ -n "${releasever_orig-}" ]; then
+            # Update to target version
+            if [ $releasever_orig = '6.10' ]; then
+                find "$install_root/etc/yum.repos.d" \
+                    -name 'CentOS-*.repo' -a -type f -a -exec \
+                sed -i \
+                    -e '/^baseurl=/!b' \
+                    -e "s,/$releasever/,/$releasever_orig/,g" \
+                {} \+
+                in_chroot "$install_root" 'yum -y update'
+            fi
+        fi
+
+        local EPEL_URL EPEL_RELEASE_RPM EPEL_RELEASE_URL
+        local ELREPO_URL ELREPO_RELEASE_RPM ELREPO_RELEASE_URL
+        local ADVANCED_VIRTUALIZATION_RELEASE_RPM
+        local OPENSTACK_RELEASE_RPM
+        local OVIRT_RELEASE_RPM
+        local RPM_FUSION_URL RPM_FUSION_RELEASE_RPM RPM_FUSION_RELEASE_URL
+        local VIRTIO_WIN_URL
+
+        # VirtIO-Win
+        VIRTIO_WIN_URL='https://fedorapeople.org/groups/virt/virtio-win/virtio-win.repo'
+
+          if [ $releasemaj -eq 8 ]; then
+            # EPEL
+            EPEL_URL='http://dl.fedoraproject.org/pub/epel'
+            EPEL_RELEASE_RPM='epel-release-latest-8.noarch.rpm'
+            EPEL_RELEASE_URL="$EPEL_URL/$EPEL_RELEASE_RPM"
+
+            # ELRepo
+            ELREPO_URL='https://www.elrepo.org'
+            ELREPO_RELEASE_RPM='elrepo-release-8.el8.elrepo.noarch.rpm'
+            ELREPO_RELEASE_URL="$ELREPO_URL/$ELREPO_RELEASE_RPM"
+
+            # Advanced Virtualization
+            ADVANCED_VIRTUALIZATION_RELEASE_RPM='centos-release-advanced-virtualization'
+
+            # OpenStack
+            OPENSTACK_RELEASE_RPM='centos-release-openstack-ussuri'
+
+            # oVirt
+            OVIRT_RELEASE_RPM='centos-release-ovirt44'
+
+            # RPM Fusion
+            RPM_FUSION_URL='https://download1.rpmfusion.org/free/el'
+            RPM_FUSION_RELEASE_RPM='rpmfusion-free-release-8.noarch.rpm'
+            RPM_FUSION_RELEASE_URL="$RPM_FUSION_URL/$RPM_FUSION_RELEASE_RPM"
+        elif [ $releasemaj -eq 7 ]; then
+            # EPEL
+            EPEL_URL='http://dl.fedoraproject.org/pub/epel'
+            EPEL_RELEASE_RPM='epel-release-latest-7.noarch.rpm'
+            EPEL_RELEASE_URL="$EPEL_URL/$EPEL_RELEASE_RPM"
+
+            # ELRepo
+            ELREPO_URL='https://www.elrepo.org'
+            ELREPO_RELEASE_RPM='elrepo-release-7.el7.elrepo.noarch.rpm'
+            ELREPO_RELEASE_URL="$ELREPO_URL/$ELREPO_RELEASE_RPM"
+
+            # Advanced Virtualization
+            ADVANCED_VIRTUALIZATION_RELEASE_RPM='centos-release-qemu-ev'
+
+            # OpenStack
+            OPENSTACK_RELEASE_RPM='centos-release-openstack-train'
+
+            # oVirt
+            OVIRT_RELEASE_RPM='centos-release-ovirt43'
+
+            # RPM Fusion
+            RPM_FUSION_URL='https://download1.rpmfusion.org/free/el'
+            RPM_FUSION_RELEASE_RPM='rpmfusion-free-release-7.noarch.rpm'
+            RPM_FUSION_RELEASE_URL="$RPM_FUSION_URL/$RPM_FUSION_RELEASE_RPM"
+        else
+            # On old/new CentOS we do
+
+            # ... support only EPEL as external repository
+            if [ -n "$repo_epel" ]; then
+                # EPEL
+                EPEL_URL='http://archives.fedoraproject.org/pub/archive/epel'
+
+                  if [ $releasemaj -eq 6 ]; then
+                    EPEL_RELEASE_RPM='epel-release-6-8.noarch.rpm'
+                elif [ $releasemaj -eq 5 ]; then
+                    EPEL_RELEASE_RPM='epel-release-5-4.noarch.rpm'
+                elif [ $releasemaj -eq 4 ]; then
+                    EPEL_RELEASE_RPM='epel-release-4-10.noarch.rpm'
+                else
+                    repo_epel=''
+                fi
+
+                if [ -n "$repo_epel" ]; then
+                    EPEL_RELEASE_URL="$EPEL_URL/$releasemaj/$basearch"
+                    EPEL_RELEASE_URL="$EPEL_RELEASE_URL/$EPEL_RELEASE_RPM"
+                else
+                    unset EPEL_URL EPEL_RELEASE_RPM EPEL_RELEASE_URL
+                fi
+            fi
+
+            # ... not support nfs-root
+            nfs_root=''
+
+            # ... support only minimal install
+            minimal_install=1
+        fi
+
+        # $repo_ovirt
+        if [ -n "$repo_ovirt" ]; then
+            repo_openstack=''
+            repo_virtio_win=''
+            repo_advanced_virtualization=''
+        fi
+
+        # $repo_openstack
+        if [ -n "$repo_openstack" ]; then
+            repo_ovirt=''
+            repo_virtio_win=''
+            repo_advanced_virtualization=''
+        fi
+
+        # $repo_epel, $repo_rpm_fusion
+        if [ -n "$repo_rpm_fusion" ]; then
+            repo_epel=1
+        fi
+
+        # EPEL
+        if [ -n "$repo_epel" ]; then
+            if [ $releasemaj -eq 8 -a $releasemin -lt 3 ]; then
+                # Enable PowerTools if EPEL is enabled to satisfy dependencies
+                in_chroot "$install_root" \
+                    'yum config-manager --set-enabled PowerTools' \
+                    #
+            fi
+
+            in_chroot "$install_root" "
+                rpm -i '$EPEL_RELEASE_URL'
+            " && has_repo=1
+
+            if [ -n "$is_archive" ]; then
+                # Unsupported releases available at $url
+                local url="http://archives.fedoraproject.org/pub/archive/epel"
+                local t="\$releasever\|$releasemaj"
+
+                local baseurl_p1="^#\?\(baseurl\)=.\+/\($t\)/\(.\+\)$"
+                local baseurl_p2="\1=$url/\$releasever/\3"
+
+                find "$install_root/etc/yum.repos.d" \
+                    -name 'epel*.repo' -a -type f -a -exec \
+                sed -i \
+                    -e 's,^\(mirrorlist\|metalink\)=,#\1=,' \
+                    -e "s,$baseurl_p1,$baseurl_p2," \
+                {} \+
+            fi
+
+            if [ $releasemaj -eq 4 -a $releasemin -le 3 ]; then
+                # Backup /etc/yum.conf since yum(1) from epel does not have one
+                local t="$install_root/etc/yum.conf"
+                ln -nf "$t" "$t.rpmorig" ||:
+            fi
+        fi
+
+        # ELRepo
+        if [ -n "$repo_elrepo" ]; then
+            in_chroot "$install_root" "
+                rpm -i '$ELREPO_RELEASE_URL'
+            " && has_repo=1 || repo_elrepo=''
+        fi
+
+        # VirtIO-Win
+        if [ -n "$repo_virtio_win" ]; then
+            curl -s -o "$install_root/etc/yum.repos.d/virtio-win.repo" \
+                "$VIRTIO_WIN_URL" \
+            && has_repo=1 || repo_virtio_win=''
+        fi
+
+        # Advanced Virtualization
+        if [ -n "$repo_advanced_virtualization" ]; then
+            in_chroot "$install_root" "
+                yum -y $nogpgcheck install '$ADVANCED_VIRTUALIZATION_RELEASE_RPM'
+            " && has_repo=1 || repo_advanced_virtualization=''
+        fi
+
+        # OpenStack
+        if [ -n "$repo_openstack" ]; then
+            in_chroot "$install_root" "
+                yum -y $nogpgcheck install '$OPENSTACK_RELEASE_RPM'
+            " && has_repo=1 || repo_openstack=''
+        fi
+
+        # oVirt
+        if [ -n "$repo_ovirt" ]; then
+            in_chroot "$install_root" "
+                yum -y $nogpgcheck install '$OVIRT_RELEASE_RPM'
+            " && has_repo=1 || repo_ovirt=''
+        fi
+
+        # RPM Fusion
+        if [ -n "$repo_rpm_fusion" ]; then
+            in_chroot "$install_root" "
+                rpm -i '$RPM_FUSION_RELEASE_URL'
+            " && has_repo=1 || repo_rpm_fusion=''
+        fi
+    }
+
+    local host subdir url
+    local _releasemin=255
+
+    # $releasever
+    releasever_orig="$releasever"
+    if [ -z "$releasever" ]; then
+        # Default CentOS version is latest
+        releasever=8
+        releasemaj=8
+        releasemin=${_releasemin}
+    else
+        # There is some incompatibility with rpmdb(1)
+        # format that can't be addressed with rpmdb_dump/load
+        # helpers: install last supported and then update.
+        [ $releasever != '6.10' ] ||
+            releasever='6.9'
+
+        releasemaj="${releasever%%.*}"
+
+        [ $releasemaj -ge 4 ] ||
+            fatal 'no support for CentOS before 4 (no yum?)'
+
+
+        if [ "$releasemaj" != "$releasever" ]; then
+            releasemin="${releasever#$releasemaj.}"
+            releasemin="${releasemin%%.*}"
+        else
+            releasemin=${_releasemin}
+        fi
+    fi
+
+    # $subdir
+    subdir='centos'
+    case "$arch" in
+        'i386')
+            # Pick CentOS 7 AltArch, which is last with i386 support,
+            # unless default release version is older.
+            if [ $releasemaj -ge 7 ]; then
+                if [ $releasemaj -gt 7 ]; then
+                    releasever=7
+                    releasemaj=7
+                    releasemin=${_releasemin}
+                fi
+                subdir='altarch'
+                # Disable all external repositories
+                repo_epel=''
+                distro_disable_extra_repos
+            fi
+            ;;
+        # Add more secondary architectures here.
+        # Note that supported set varies between releases.
+    esac
+
+    # $baseurl, $updatesurl
+    release_url()
+    {
+        local subdir="${subdir:+$subdir/}"
+
+        local templ='http://%s.centos.org/%s%s/%s'
+        local base updates
+
+        base="$(
+            [ $releasemaj -le 7 ] &&
+                arch="os/$basearch" || arch="BaseOS/$basearch/os"
+
+            printf -- "$templ" \
+                "$host" "$subdir" "$releasever" "$arch"
+        )"
+        [ -n "$base" ] &&
+            curl -L -f -s -o /dev/null "$base" &&
+        echo "baseurl='$base'" || return
+
+        updates="$(
+            [ $releasemaj -le 7 ] &&
+                arch="updates/$basearch" || arch="AppStream/$basearch/os"
+
+            printf -- "$templ" \
+                "$host" "$subdir" "$releasever" "$arch"
+        )"
+        [ "$base" != "$updates" ] &&
+            curl -L -f -s -o /dev/null "$updates" &&
+        echo "updatesurl='$updates'" ||:
+    }
+      if url="$(host='mirror' release_url)"; then
+        # Current
+        is_archive=''
+    elif url="$(host='vault' subdir="${subdir#centos}" release_url)"; then
+        # Archive
+        is_archive='1'
+    else
+        fatal "CentOS $releasever isn't available for download"
+    fi
+    eval "$url"
+
+    [ $releasemaj -lt 8 ] || has_glibc_langpack=1
+
+    if [ $releasemaj -lt 6 ]; then
+        PKGS="${PKGS:+$PKGS }vixie-cron sysklogd ntp"
+        # Make sure yum(1) is there for CentOS < 5.x
+        [ $releasemaj -ge 5 ] || PKGS="$PKGS yum"
+    else
+        PKGS="${PKGS:+$PKGS }cronie rsyslog"
+        if [ $releasemaj -gt 6 ] ||
+           [ $releasemaj -eq 6 -a $releasemin -gt 7 ]
+        then
+            PKGS="${PKGS:+$PKGS }chrony"
+        else
+            PKGS="${PKGS:+$PKGS }ntp"
+        fi
+        # yum(1) supports --nogpgcheck
+        nogpgcheck='--nogpgcheck'
+    fi
+
+    # Additional packages that are (not) in @core package group
+    PKGS="${PKGS:+$PKGS }postfix logrotate sudo"
+}
+distro_centos
+
+if [ -n "$has_glibc_langpack" ]; then
+    # Language packages
     eval $(
         set -- $(IFS=':' && echo ${install_langs:-en})
 
@@ -1910,25 +2207,45 @@ if [ $releasever -ge 8 ]; then
         echo "f='$f'"
     )
     PKGS="${PKGS:+$PKGS }$f" && unset f
-else
-    PKGS=''
 fi
 
+if [ -n "$is_archive" ]; then
+    # No country/continent mirrors
+    cc=''
+    # Disable external repositories, except EPEL
+    distro_disable_extra_repos
+fi
+
+setarch "$basearch" \
 yum -y \
-    --releasever=$releasever \
+    ${releasemaj:+
+        --releasever=$releasemaj
+     } \
+    ${baseurl:+
+        --nogpgcheck
+        --disablerepo='*'
+        --enablerepo='fasttrack'
+        --setopt='fasttrack.mirrorlist=file:///dev/null'
+        --setopt="fasttrack.baseurl=$baseurl"
+        ${updatesurl:+
+            --enablerepo='cr'
+            --setopt='cr.mirrorlist=file:///dev/null'
+            --setopt="cr.baseurl=$updatesurl"
+         }
+     } \
+    ${install_langs:+
+        --setopt="override_install_langs=$install_langs"
+     } \
+    ${nodocs:+
+        --setopt='tsflags=nodocs'
+     } \
     --installroot="$install_root" \
     \
-    ${install_langs:+--setopt="override_install_langs=$install_langs"} \
-    ${nodocs:+--setopt="tsflags=nodocs"} \
-    \
-    --exclude='aic94xx-firmware*' \
+    --exclude='*firmware*' \
     --exclude='alsa*' \
-    --exclude='ivtv*firmware' \
-    --exclude='iwl*firmware' \
     --exclude='libertas*' \
-    --exclude='kernel*' --exclude='microcode_ctl' --exclude='linux-firmware' \
+    --exclude='microcode_ctl' --exclude='linux-firmware' \
     --exclude='grub2-pc*' --exclude='grub2-efi*' \
-    --exclude='plymouth*' \
     --exclude='NetworkManager*' \
     --exclude='teamd' \
     --exclude='tuned' \
@@ -1942,22 +2259,32 @@ yum -y \
     --exclude='sssd-*' \
     \
     install '@core' \
-    $PKGS \
+    ${PKGS-} \
     #
 
-chroot "$install_root" yum -y install \
-    \
-    'postfix' \
-    \
-    'chrony' \
-    \
-    'rsyslog' \
-    'logrotate' \
-    \
-    'cronie' \
-    \
-    'sudo' \
-    #
+if [ -n "${install_root%/}" ]; then
+    # Convert rpmdb(1) from host to target format
+    {
+        t="$install_root/var/lib/rpm"
+        find "$t" ! -name 'Packages' -a -type f -a -exec rm -f {} \+
+
+        t="$t/Packages" && f="$t.bak"
+        mv -f "$t" "$f"
+
+        /usr/lib/rpm/rpmdb_dump "$f"
+
+        rm -f "$f"
+    } | {
+        in_chroot_exec "$install_root" '
+            cd /var/lib/rpm &&
+            /usr/lib/rpm/rpmdb_load Packages &&
+            rpm --rebuilddb
+        '
+    }
+fi
+
+# Perform distro specific actions
+distro_post_core_hook
 
 # $nfs_root
 
@@ -1997,33 +2324,26 @@ fi
 # $selinux
 
 if [ -n "$selinux" ]; then
-    chroot "$install_root" \
-        sed -i '/etc/selinux/config' \
-            -e "s/^\(SELINUX=\)\w\+\(\s*\)$/\1$selinux\2/" \
-        #
+    sed -i "$install_root/etc/selinux/config" \
+        -e "s/^\(SELINUX=\)\w\+\(\s*\)$/\1$selinux\2/"
 fi
 
 # $readonly_root
 
 if [ -n "$readonly_root" ]; then
-    if [ $releasever -gt 7 ]; then
-        chroot "$install_root" \
-            yum -y install 'readonly-root' \
-            #
+    if [ $releasemaj -gt 7 ]; then
+        in_chroot "$install_root" 'yum -y install readonly-root'
     fi
 
-    chroot "$install_root" \
-        sed -i '/etc/sysconfig/readonly-root' \
-            -e 's/^\(READONLY=\)\w\+\(\s*\)$/\1yes\2/' \
+    sed -i "$install_root/etc/sysconfig/readonly-root" \
+        -e 's/^\(READONLY=\)\w\+\(\s*\)$/\1yes\2/' \
         #
 fi
 
 # $passwordless_root
 
 if [ -n "$passwordless_root" ]; then
-    chroot "$install_root" \
-        passwd -d root \
-        #
+    in_chroot "$install_root" 'passwd -d root'
 fi
 
 # $autopassword_root
@@ -2125,7 +2445,7 @@ EnvironmentFile=-/etc/sysconfig/autopass
 [Install]
 WantedBy=getty.target
 _EOF
-    chroot "$install_root" systemctl enable autopass.service
+    in_chroot "$install_root" 'systemctl enable autopass.service'
 fi
 
 # $autorelabel
@@ -2134,81 +2454,33 @@ if [ -n "$autorelabel" ]; then
     echo : >"$install_root/.autorelabel"
 fi
 
-## Install external repositories
+# $cc
 
-has_repo=''
-
-# EPEL
-if [ -n "$repo_epel" ]; then
-    # Enable PowerTools if EPEL is enabled to satisfy dependencies
-    if [ $releasever -gt 7 ]; then
-       chroot "$install_root" \
-           yum config-manager --set-enabled PowerTools \
-           #
-    fi
-
-    chroot "$install_root" yum -y --nogpgcheck install \
-        "$EPEL_RELEASE_URL" && has_repo=1 \
+if [ -n "$cc" ]; then
+    for f in \
+        "$install_root/etc/yum/vars/cc" \
+        "$install_root/etc/dnf/vars/cc" \
         #
-fi
+    do
+        if [ -d "${f%/*}" ]; then
+            [ -s "$f" ] || echo "$cc" >"$f"
+            break
+        fi
+    done
 
-# ELRepo
-if [ -n "$repo_elrepo" ]; then
-    chroot "$install_root" yum -y --nogpgcheck install \
-        "$ELREPO_RELEASE_URL" && has_repo=1 || repo_elrepo=''
-fi
+    for f in "$install_root/etc/yum.repos.d"/*.repo; do
+        if [ -f "$f" ]; then
+            sed -i "$f" \
+                -e '/^mirrorlist=.\+\/\?[^=]\+=[^=]*/!b' \
+                -e '/&cc=.\+/b' \
+                -e 's/.\+/\0\&cc=$cc/' \
+                #
+        fi
+    done
 
-# VirtIO-Win
-if [ -n "$repo_virtio_win" ]; then
-    curl -s -o "$install_root/etc/yum.repos.d/virtio-win.repo" \
-        "$VIRTIO_WIN_URL" && has_repo=1 || repo_virtio_win='' \
-        #
-fi
+    unset f
 
-# Advanced Virtualization
-if [ -n "$repo_advanced_virtualization" ]; then
-    chroot "$install_root" yum -y --nogpgcheck install \
-        "$ADVANCED_VIRTUALIZATION_RELEASE_RPM" \
-    && has_repo=1 || repo_advanced_virtualization=''
-fi
-
-# OpenStack
-if [ -n "$repo_openstack" ]; then
-    chroot "$install_root" yum -y --nogpgcheck install \
-        "$OPENSTACK_RELEASE_RPM" && has_repo=1 || repo_openstack=''
-fi
-
-# oVirt
-if [ -n "$repo_ovirt" ]; then
-    chroot "$install_root" yum -y --nogpgcheck install \
-        "$OVIRT_RELEASE_RPM" && has_repo=1 || repo_ovirt=''
-fi
-
-# RPM Fusion
-if [ -n "$repo_rpm_fusion" ]; then
-    chroot "$install_root" yum -y --nogpgcheck install \
-        "$RPM_FUSION_RELEASE_URL" && has_repo=1 || repo_rpm_fusion=''
-fi
-
-## Update repos data (e.g. import PGP keys) and possibly installed packages
-
-if [ -n "$has_repo" ]; then
-    # $cc
-    if [ -n "$cc" ]; then
-        for f in "$install_root/etc/yum.repos.d"/*.repo; do
-            if [ -f "$f" ]; then
-                sed -i "$f" \
-                    -e '/^mirrorlist=.\+\/\?[^=]\+=[^=]*/!b' \
-                    -e '/&cc=.\+/b' \
-                    -e 's/.\+/\0\&cc=$cc/' \
-                    #
-            fi
-        done
-
-        unset f
-    fi
-
-    chroot "$install_root" yum -y update
+    in_chroot "$install_root" 'yum -y update'
 fi
 
 ## Minimal install
@@ -2219,7 +2491,7 @@ fi
 
 ## Release specific tricks
 
-if [ $releasever -gt 7 ]; then
+if [ $releasemaj -gt 7 ]; then
     # Disable packages that not available in repositories for CentOS/RHEL 8+
     pkg_iucode_tool=
 
@@ -2392,7 +2664,7 @@ if [ -n "${pkg_shim-}" ]; then
     # shim-x64
     [ -z "${pkg_shim_x64-}" ] || PKGS="$PKGS shim-x64"
 
-    if [ $releasever -eq 7 ]; then
+    if [ $releasemaj -eq 7 ]; then
         # shim-unsigned-ia32
         [ -z "${pkg_shim_unsigned_ia32-}" ] || PKGS="$PKGS shim-unsigned-ia32"
         # shim-unsigned-x64
@@ -2783,7 +3055,7 @@ fi
 
 [ -z "${pkg_tmux-}" ] || PKGS="$PKGS tmux"
 
-if [ $releasever -le 7 -o -n "$repo_epel" ]; then
+if [ $releasemaj -le 7 -o -n "$repo_epel" ]; then
     # screen
     [ -z "${pkg_screen-}" ] || PKGS="$PKGS screen"
 fi
@@ -2946,7 +3218,7 @@ if [ -n "${grp_virt_host-}" ]; then
     # qemu-kvm
     if [ -n "${pkg_qemu_kvm-}" ]; then
         f=''
-        if [ $releasever -eq 7 ]; then
+        if [ $releasemaj -eq 7 ]; then
             [ -z "$repo_openstack" -a \
               -z "$repo_ovirt" -a \
               -z "$repo_advanced_virtualization" \
@@ -2971,16 +3243,15 @@ if [ -n "${grp_virt_host-}" ]; then
 
     # qemu-xen
     if [ -n "${pkg_qemu_xen-}" ]; then
-        if [ $releasever -le 7 ]; then
+        if [ $releasemaj -le 7 ]; then
             PKGS="$PKGS xen"
 
             # Install before any package from SIG
-            chroot "$install_root" yum -y install \
-                'centos-release-xen' \
-                'centos-release-xen-common' \
+            in_chroot "$install_root" \
+                'yum -y install centos-release-xen centos-release-xen-common' \
                 #
             # Update repos data and possibly installed packages
-            chroot "$install_root" yum -y update
+            in_chroot "$install_root" 'yum -y update'
 
             # libvirt-daemon-xen
             [ -z "${pkg_libvirt-}" ] || PKGS="$PKGS libvirt-daemon-xen"
@@ -3014,7 +3285,7 @@ fi # [ -n "${grp_virt_guest-}" ]
 
 # cockpit
 if [ -n "${pkg_cockpit-}" ]; then
-    if [ $releasever -ge 7 ]; then
+    if [ $releasemaj -ge 7 ]; then
         PKGS="$PKGS cockpit"
 
         # cockpit-machines
@@ -3106,7 +3377,7 @@ if [ -n "${pkg_xfce-}" ]; then
 
     # atril/evince
     if [ -n "${pkg_atril-}" ]; then
-        if [ $releasever -le 7 ]; then
+        if [ $releasemaj -le 7 ]; then
             PKGS="$PKGS atril"
         else
             PKGS="$PKGS evince"
@@ -3404,14 +3675,22 @@ if [ -n "${has_de-}" ]; then
             PKGS="$PKGS libreoffice-wiki-publisher"
 
         if [ -n "${gtk_based_de-}" ]; then
-            # libreoffice-gtk2
-            pkg_enable libreoffice_gtk2
-            [ -z "${pkg_libreoffice_gtk2-}" ] ||
-                PKGS="$PKGS libreoffice-gtk2"
-            # libreoffice-gtk3
-            pkg_enable libreoffice_gtk3
-            [ -z "${pkg_libreoffice_gtk3-}" ] ||
-                PKGS="$PKGS libreoffice-gtk3"
+            if [ $releasemaj -eq 7 -a $releasemin -gt 4 ] ||
+               [ $releasemaj -eq 8 -a $releasemin -lt 3 ]
+            then
+                # libreoffice-gtk2
+                pkg_enable libreoffice_gtk2
+                [ -z "${pkg_libreoffice_gtk2-}" ] ||
+                    PKGS="$PKGS libreoffice-gtk2"
+            fi
+            if [ $releasemaj -eq 7 -a $releasemin -gt 4 ] ||
+               [ $releasemaj -gt 7 ]
+            then
+                # libreoffice-gtk3
+                pkg_enable libreoffice_gtk3
+                [ -z "${pkg_libreoffice_gtk3-}" ] ||
+                    PKGS="$PKGS libreoffice-gtk3"
+            fi
         fi
 
         # libreoffice-emailmerge
@@ -3476,7 +3755,7 @@ if [ -n "${has_de-}" ]; then
 
         # keepassx2/keepassxc
         if [ -n "${pkg_keepassx2-}" ]; then
-            if [ $releasever -le 7 ]; then
+            if [ $releasemaj -le 7 ]; then
                 PKGS="$PKGS keepassx2"
             else
                 PKGS="$PKGS keepassxc"
@@ -3547,7 +3826,7 @@ if [ -n "${has_de-}" ]; then
     if [ -n "${pkg_wireshark-}" ]; then
        PKGS="$PKGS wireshark"
 
-       if [ $releasever -le 7 ]; then
+       if [ $releasemaj -le 7 ]; then
            # wireshark-gnome
            [ -z "${gtk_based_de-}" ] ||
                PKGS="$PKGS wireshark-gnome"
@@ -3690,7 +3969,7 @@ fi # [ -n "${pkg_nm-}" ]
 
 # network-scripts
 if [ -n "${pkg_network_scripts-}" ]; then
-    if [ $releasever -gt 7 ]; then
+    if [ $releasemaj -gt 7 ]; then
         PKGS="$PKGS network-scripts"
     fi
 fi
@@ -3761,6 +4040,6 @@ fi
 
 for f in $PKGS; do
     echo "$f"
-done | xargs chroot "$install_root" yum -y install
+done | setarch $basearch xargs chroot "$install_root" yum -y install
 
 exit 0
