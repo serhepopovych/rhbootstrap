@@ -85,9 +85,6 @@ Options and their defaults:
         Enable/disable ELRepo and selected packages from it
     --repo-rpm-fusion, --no-repo-rpm-fusion
         Enable/disable RPM Fusion and selected packages from it
-    --repo-nux-dextop, --no-repo-nux-dextop
-        Enable/disable Nux Dextop and selected packages from it.
-        CentOS 7 only, ignored for CentOS 8
 
     --nfs-root
         Prepare bootstrapped system for use as NFS root and make initramfs
