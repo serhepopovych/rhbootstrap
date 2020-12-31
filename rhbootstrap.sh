@@ -2190,6 +2190,13 @@ distro_centos()
     fi
     eval "$url"
 
+    if [ -n "$is_archive" ]; then
+        # No country/continent mirrors
+        cc=''
+        # Disable external repositories, except EPEL
+        distro_disable_extra_repos
+    fi
+
     [ $releasemaj -lt 8 ] || has_glibc_langpack=1
 
     if [ $releasemaj -lt 6 ]; then
@@ -2352,13 +2359,6 @@ if [ -n "$has_glibc_langpack" ]; then
         echo "f='$f'"
     )
     PKGS="${PKGS:+$PKGS }$f" && unset f
-fi
-
-if [ -n "$is_archive" ]; then
-    # No country/continent mirrors
-    cc=''
-    # Disable external repositories, except EPEL
-    distro_disable_extra_repos
 fi
 
 setarch "$basearch" \
