@@ -1697,7 +1697,7 @@ _EOF
             done
         }
 
-        # Create XDG and other dirs in /etc/skel and ~root
+        # Usage: mc_ini <homedir>
         mc_ini()
         {
             local d
@@ -1742,6 +1742,7 @@ top_panel_size=1
 _EOF
         }
 
+        # Usage: screenrc <homedir>
         screenrc()
         {
             local d="$1"
@@ -1785,6 +1786,7 @@ bind F eval "hardstatus alwayslastline"
 _EOF
         }
 
+        # /root
         t="$(in_chroot_exec "$install_root" 't=~root; echo "t='\''$t'\''"')"
         if eval "$t" && t="$install_root/$t" && [ -d "$t" ]; then
             install -d \
@@ -1795,10 +1797,11 @@ _EOF
                 "$t/tmp"
             ln -sf '.local/bin' "$t/bin"
         fi
-        [ -z "${pkg_mc-}" ] || mc_ini "$t"
-        [ -z "${pkg_screen-}" ] || screenrc "$t"
+        mc_ini "$t"
+        screenrc "$t"
         ssh_agent_start4bashrc "$t"
 
+        # /etc/skel
         t="$install_root/etc/skel"
         install -d \
             "$t/.local" "$t/.local/share" "$t/.local/bin" \
@@ -1807,12 +1810,12 @@ _EOF
             "$t/.ssh" \
             "$t/tmp"
         ln -sf '.local/bin' "$t/bin"
-        [ -z "${pkg_mc-}" ] || mc_ini "$t"
-        [ -z "${pkg_screen-}" ] || screenrc "$t"
+        mc_ini "$t"
+        screenrc "$t"
         ssh_agent_start4bashrc "$t"
 
         # Termiate bash after given seconds of inactivity (auto-logout)
-        if [ -n "${pkg_bash-}" ]; then
+        if [ -x '/bin/bash' ]; then
             t="$install_root/etc/profile.d/shell-timeout.sh"
             cat >"$t" <<'_EOF'
 # Set non-X11 login shell session auto-logout after timeout
