@@ -1588,6 +1588,115 @@ _EOF
             fi
         fi
 
+        # Usage: ssh_agent_start4bashrc() [<user1>|<file1>] [<user2>|<file1>] ...
+        ssh_agent_start4bashrc()
+        {
+            local func="${FUNCNAME:-ssh_agent_start4bashrc}"
+
+            local t f
+
+            for f in "$@"; do
+                # Skip empty arguments
+                [ -n "$f" ] || continue
+
+                # Resolve username or directory to .bashrc file
+                t=''
+                while :; do
+                      if [ -f "$f" ]; then
+                        t=''
+                        break
+                    elif [ -d "$f" ]; then
+                        f="$f/.bashrc"
+                    else
+                        # Stop on non-first attempt
+                        [ -z "$t" ] || break
+
+                        # User or it's home does not exist
+                        t="~$f" && eval "f=$t" && [ "$f" != "$t" ] || break
+                    fi
+                done
+                [ -z "$t" ] || continue
+
+                # Skip already patched files
+                t="$(sed -n -e '/^# Start ssh-agent for non-X11 session/{p;q}' "$f")"
+                [ -z "$t" ] || continue
+
+                # Keep it disabled by default for compatibility
+                t="${f%/.bashrc}/.ssh/ssh-agent.env"
+                rm -f "$t" ||:
+                install -D -m 0644 /dev/null "$t" ||:
+
+                # Patch .bashrc file at known location instead of appending
+                sed -i "$f" \
+                    -e 'N' \
+                    -e '/^\s\+\. \/etc\/bashrc\s\+fi$/!{P;D}' \
+                    -e 'r /dev/stdin' \
+                <<'_EOF'
+
+# Start ssh-agent for non-X11 session unless ...
+if [ -z "${DISPLAY-}" ]; then
+    ssh_agent=''
+    # Note that is is up to user to ensure that ~/.ssh isn't world writeable.
+    ssh_agent_env=~/.ssh/ssh-agent.env
+
+    while :; do
+        # Socket by agent or sshd forwarded connection.
+        # In latter case SSH_AGENT_PID isn't available.
+        if [ -S "${SSH_AUTH_SOCK-}" ]; then
+            break
+        fi
+        # Cleanup if not running or running but no socket.
+        if [ -n "${ssh_agent##*/*}" ]; then
+            unset SSH_AUTH_SOCK SSH_AGENT_PID
+            break
+        fi
+        # Source environment.
+        if [ -r "$ssh_agent_env" ]; then
+            eval $(
+                . "$ssh_agent_env" >/dev/null
+
+                [ -z "${SSH_AGENT_PID-}" ] ||
+                [ -z "${SSH_AGENT_PID##*\'*}" ] ||
+                    echo "export SSH_AGENT_PID='$SSH_AGENT_PID'"
+
+                [ -z "${SSH_AUTH_SOCK-}" ] ||
+                [ -z "${SSH_AUTH_SOCK##*\'*}" ] ||
+                    echo "export SSH_AUTH_SOCK='$SSH_AUTH_SOCK'"
+            )
+        fi
+
+        if [ -n "${SSH_AGENT_PID-}" ] &&
+           kill -0 "$SSH_AGENT_PID" 2>/dev/null
+        then
+            # ... already running
+            ssh_agent='running'
+        else
+            # ... first attempt to start failed.
+            [ -z "$ssh_agent" ] &&
+            # ... disabled (e.g. with ln -sf /dev/null ~/.ssh/ssh-agent.env).
+            [ ! -e "$ssh_agent_env" -o -s "$ssh_agent_env" ] &&
+            # ... it exists and started successfuly.
+            ssh_agent="$(command -v ssh-agent)" &&
+                [ -x "$ssh_agent" ] &&
+                mkdir -p "${ssh_agent_env%/*}" &&
+                rm -f "$ssh_agent_env" &&
+                (
+                    # Make sure agent settings readable only by user
+                    umask 0077 && "$ssh_agent" -s >"$ssh_agent_env"
+                ) ||
+            ssh_agent='not running'
+
+            # Make sure we source environment.
+            unset SSH_AUTH_SOCK
+        fi
+    done
+
+    unset ssh_agent ssh_agent_env
+fi
+_EOF
+            done
+        }
+
         # Create XDG and other dirs in /etc/skel and ~root
         mc_ini()
         {
@@ -1688,6 +1797,7 @@ _EOF
         fi
         [ -z "${pkg_mc-}" ] || mc_ini "$t"
         [ -z "${pkg_screen-}" ] || screenrc "$t"
+        ssh_agent_start4bashrc "$t"
 
         t="$install_root/etc/skel"
         install -d \
@@ -1699,6 +1809,7 @@ _EOF
         ln -sf '.local/bin' "$t/bin"
         [ -z "${pkg_mc-}" ] || mc_ini "$t"
         [ -z "${pkg_screen-}" ] || screenrc "$t"
+        ssh_agent_start4bashrc "$t"
 
         # Termiate bash after given seconds of inactivity (auto-logout)
         if [ -n "${pkg_bash-}" ]; then
