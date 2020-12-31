@@ -2361,6 +2361,17 @@ if [ -n "$has_glibc_langpack" ]; then
     PKGS="${PKGS:+$PKGS }$f" && unset f
 fi
 
+# Pick repo names on host to configure and use for initial setup
+eval $(
+    yum --noplugins -C repolist | \
+    sed -n -e '2,$ s,^\W\?\(\w\+\).*$,\1,p' | \
+    sed -n -e '1 s,.\+,baserepo=\0,p' \
+           -e '2 s,.\+,updatesrepo=\0,p'
+)
+[ -n "${baserepo-}" ] || baseurl=''
+[ -n "${updatesrepo-}" ] || updatesurl=''
+
+# Initial setup
 setarch "$basearch" \
 yum -y \
     ${releasemaj:+
@@ -2369,13 +2380,13 @@ yum -y \
     ${baseurl:+
         --nogpgcheck
         --disablerepo='*'
-        --enablerepo='fasttrack'
-        --setopt='fasttrack.mirrorlist=file:///dev/null'
-        --setopt="fasttrack.baseurl=$baseurl"
+        --enablerepo="$baserepo"
+        --setopt="$baserepo.mirrorlist=file:///dev/null"
+        --setopt="$baserepo.baseurl=$baseurl"
         ${updatesurl:+
-            --enablerepo='cr'
-            --setopt='cr.mirrorlist=file:///dev/null'
-            --setopt="cr.baseurl=$updatesurl"
+            --enablerepo="$updatesrepo"
+            --setopt="$updatesrepo.mirrorlist=file:///dev/null"
+            --setopt="$updatesrepo.baseurl=$updatesurl"
          }
      } \
     ${install_langs:+
@@ -2428,7 +2439,7 @@ if [ -n "${install_root%/}" ]; then
     }
 fi
 
-# Perform distro specific actions
+# Perform distro specific actions post initial setup
 distro_post_core_hook
 
 # $nfs_root
