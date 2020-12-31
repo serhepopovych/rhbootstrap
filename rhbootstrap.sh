@@ -2129,7 +2129,7 @@ distro_centos()
 
     # $subdir
     subdir='centos'
-    case "$arch" in
+    case "$basearch" in
         'i386')
             # Pick CentOS 7 AltArch, which is last with i386 support,
             # unless default release version is older.
