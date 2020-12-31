@@ -231,6 +231,8 @@ in_chroot_exec()
 
 ## Parse options
 
+# Distribution to install/setup
+distro='centos'
 # System processor (CPU) architecture (default: running system)
 arch="$(uname -m)"
 # CentOS release version (default: 8)
@@ -327,6 +329,9 @@ usage()
     cat >&$fd <<EOF
 Usage: $prog_name [options] [<install_root>]
 Options and their defaults:
+    --distro=$distro
+        Distribution to install to chroot or setup.
+        Only centos and fedora supported at the moment.
     --arch=$arch
         System processor (CPU) architecture to install packages for.
         Only AMD64 (x86_64) and i386 supported at the moment
@@ -460,6 +465,17 @@ argv=''
 while [ $# -gt 0 ]; do
     arg=''
     case "$1" in
+        --distro)
+            [ -n "${2-}" ] || exit
+            distro="$2"
+            arg="--distro '$distro'"
+            shift
+            ;;
+        --distro=*)
+            distro="${1##--distro=}"
+            [ -n "$distro" ] || exit
+            arg="--distro='$distro'"
+            ;;
         --arch)
             [ -n "${2-}" ] || exit
             arch="$2"
@@ -778,6 +794,13 @@ trap - EXIT
 
 # Must be started by root (uid 0)
 [ "$(id -u)" = 0 ] || fatal 'Only root (uid 0) can use this service\n'
+
+# $distro
+case "$distro" in
+    centos) ;;
+    fedora) ;;
+    *)      fatal 'Unsupported distribution "%s"\n' "$distro" ;;
+esac
 
 # $arch, $basearch
 case "$arch" in
@@ -2189,7 +2212,129 @@ distro_centos()
     # Additional packages that are (not) in @core package group
     PKGS="${PKGS:+$PKGS }postfix logrotate sudo"
 }
-distro_centos
+
+# Usage: distro_fedora
+distro_fedora()
+{
+    # Usage: distro_post_core_hook
+    distro_post_core_hook()
+    {
+        if [ -n "$is_archive" ]; then
+            # Releases available at $baseurl
+            local url="${baseurl%/*/$releasever/*}"
+
+            local baseurl_p1='^#\?\(baseurl\)=.\+/\([^/]\+/\$releasever/.\+\)$'
+            local baseurl_p2="\1=$url/\2"
+
+            find "$install_root/etc/yum.repos.d" \
+                -name 'fedora*.repo' -a -type f -a -exec \
+            sed -i \
+                -e 's,^\(mirrorlist\|metalink\)=,#\1=,' \
+                -e "s,$baseurl_p1,$baseurl_p2," \
+            {} \+
+        fi
+
+        # On old/new Fedora we do
+
+        # ... not support nfs-root
+        nfs_root=''
+
+        # ... support only minimal install
+        minimal_install=1
+    }
+
+    local host subdir url
+    local _releasemin=255
+
+    # $releasever
+    releasever_orig="$releasever"
+    if [ -z "$releasever" ]; then
+        # Default Fedora version is latest
+        releasever=32
+        releasemaj=32
+    else
+        releasemaj="${releasever%%.*}"
+
+        [ $releasemaj -ge 10 ] ||
+            fatal 'no support for Fedora before 10 (Fedora Core?)'
+    fi
+    releasemin=${_releasemin}
+
+    # $subdir
+    subdir='fedora/linux'
+    case "$basearch" in
+        'i386')
+            # Pick Fedora 30, which is last with i386 support,
+            # unless default release version is older.
+            if [ $releasemaj -gt 30 ]; then
+                releasever=30
+                releasemaj=30
+            fi
+            # Starting from Fedora 26 i386 becomes secondary
+            [ $releasemaj -le 25 ] || subdir='fedora-secondary'
+            ;;
+        # Add more secondary architectures here.
+        # Note that supported set varies between releases.
+    esac
+
+    # $baseurl, $updatesurl
+    release_url()
+    {
+        local subdir="${subdir:+$subdir/}"
+
+        local templ='http://%s.fedoraproject.org/pub/%s%s/%s/%s'
+        local base updates
+
+        base="$(
+            arch="Everything/$arch/os"
+
+            printf -- "$templ" \
+                "$host" "$subdir" 'releases' "$releasever" "$arch"
+        )"
+        [ -n "$base" ] &&
+            curl -L -f -s -o /dev/null "$base" &&
+        echo "baseurl='$base'" || return
+
+        updates="$(
+            [ $releasever -le 27 ] || arch="Everything/$arch"
+
+            printf -- "$templ" \
+                "$host" "$subdir" 'updates'  "$releasever" "$arch"
+        )"
+        [ "$base" != "$updates" ] &&
+            curl -L -f -s -o /dev/null "$updates" &&
+        echo "updatesurl='$updates'" ||:
+    }
+      if url="$(host='dl' release_url)"; then
+        # Current
+        is_archive=''
+    elif url="$(host='archives' subdir="archive/$subdir" release_url)"; then
+        # Archive
+        is_archive='1'
+    else
+        fatal "Fedora $releasever isn't available for download"
+    fi
+    eval "$url"
+
+    # No country/continent mirrors
+    cc=''
+
+    # No EPEL repository
+    repo_epel=''
+    # No external repositories
+    distro_disable_extra_repos
+
+    [ $releasemaj -lt 24 ] || has_glibc_langpack=1
+
+    # yum(1) supports --nogpgcheck
+    nogpgcheck='--nogpgcheck'
+
+    # Additional packages that are (not) in @core package group
+    PKGS="${PKGS:+$PKGS }cronie rsyslog chrony"
+    PKGS="${PKGS:+$PKGS }postfix logrotate sudo"
+}
+
+distro_${distro}
 
 if [ -n "$has_glibc_langpack" ]; then
     # Language packages
