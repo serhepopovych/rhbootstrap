@@ -3426,8 +3426,9 @@ _EOF
     [ -z "${pkg_kdump-}" ] || PKGS="$PKGS kexec-tools"
     # dkms
     pkg_switch dkms
-    [ -z "$repo_epel" -o -z "${pkg_dkms-}" ] ||
-        PKGS="$PKGS dkms kernel-devel"
+    if is_fedora || [ -n "$repo_epel" ]; then
+        [ -z "${pkg_dkms-}" ] || PKGS="$PKGS dkms kernel-devel"
+    fi
 else
     pkg_kdump=
     pkg_dkms=
@@ -3456,7 +3457,10 @@ if [ -n "${pkg_zsh-}" ]; then
         PKGS="$PKGS zsh-syntax-highlighting"
 fi
 
-[ -z "$repo_epel" -o -z "${pkg_dash-}" ] || PKGS="$PKGS dash"
+if is_fedora || [ -n "$repo_epel" ]; then
+    [ -z "${pkg_dash-}" ] || PKGS="$PKGS dash"
+fi
+
 [ -z "${pkg_mksh-}" ] || PKGS="$PKGS mksh"
 
 [ -z "${pkg_psmisc-}" ] || PKGS="$PKGS psmisc"
@@ -3473,7 +3477,7 @@ fi
 [ -z "${pkg_lynx-}" ] || PKGS="$PKGS lynx"
 [ -z "${pkg_mutt-}" ] || PKGS="$PKGS mutt"
 
-if [ -n "$repo_epel" ]; then
+if is_fedora || [ -n "$repo_epel" ]; then
     # elinks
     [ -z "${pkg_elinks-}" ] || PKGS="$PKGS elinks"
     # links
@@ -3499,7 +3503,9 @@ fi
 
 [ -z "${pkg_tmux-}" ] || PKGS="$PKGS tmux"
 
-if centos_version_le $releasemaj 7 || [ -n "$repo_epel" ]; then
+if is_fedora || [ -n "$repo_epel" ] ||
+   centos_version_le $releasemaj 7
+then
     # screen
     [ -z "${pkg_screen-}" ] || PKGS="$PKGS screen"
 fi
@@ -3529,7 +3535,7 @@ fi
 
 [ -z "${pkg_iotop-}" ] || PKGS="$PKGS iotop"
 
-if [ -n "$repo_epel" ]; then
+if is_fedora || [ -n "$repo_epel" ]; then
     # atop
     [ -z "${pkg_atop-}" ]  || PKGS="$PKGS atop"
     # htop
@@ -3596,7 +3602,10 @@ fi # [ -n "${grp_block_utils-}" ]
 
 # Filesystem utils
 
-[ -z "$repo_epel" -o -z "${pkg_ntfs_3g-}" ] || PKGS="$PKGS ntfs-3g"
+if is_fedora || [ -n "$repo_epel" ]; then
+    [ -z "${pkg_ntfs_3g-}" ] || PKGS="$PKGS ntfs-3g"
+fi
+
 [ -z "${pkg_ntfsprogs-}" ] || PKGS="$PKGS ntfsprogs"
 [ -z "${pkg_xfsprogs-}" ] || PKGS="$PKGS xfsprogs"
 [ -z "${pkg_btrfs_progs-}" ] || PKGS="$PKGS btrfs-progs"
@@ -3625,7 +3634,7 @@ fi # [ -n "${grp_block_utils-}" ]
 [ -z "${pkg_wget-}" ] || PKGS="$PKGS wget"
 [ -z "${pkg_rsync-}" ] || PKGS="$PKGS rsync"
 
-if [ -n "$repo_epel" ]; then
+if is_fedora || [ -n "$repo_epel" ]; then
     # hping3
     [ -z "${pkg_hping3-}" ] || PKGS="$PKGS hping3"
     # bind-utils
@@ -3777,7 +3786,7 @@ fi
 
 ## Xfce
 
-if [ -z "$repo_epel" ]; then
+if is_centos && [ -z "$repo_epel" ]; then
     # No Xfce when EPEL disabled
     pkg_xfce=
 fi
@@ -3878,7 +3887,7 @@ fi # [ -n "${pkg_xfce-}" ]
 
 ## MATE
 
-if [ -z "$repo_epel" ]; then
+if is_centos && [ -z "$repo_epel" ]; then
     # No MATE when EPEL disabled
     pkg_mate=
 fi
@@ -3945,7 +3954,7 @@ if [ -n "${has_de-}" ]; then
             ;;
         'x2go')
             # x2goserver
-            if [ -n "$repo_epel" ]; then
+            if is_fedora || [ -n "$repo_epel" ]; then
                 PKGS="$PKGS x2goserver"
 
                 # x2goserver-desktopsharing
@@ -4021,7 +4030,7 @@ if [ -n "${has_de-}" ]; then
             PKGS="$PKGS xorg-x11-fonts-misc"
     fi
 
-    if [ -n "$repo_epel" ]; then
+    if is_fedora || [ -n "$repo_epel" ]; then
         # guake
         [ -z "${pkg_guake-}" ] || PKGS="$PKGS guake"
 
@@ -4083,7 +4092,7 @@ if [ -n "${has_de-}" ]; then
     if [ -n "${pkg_pidgin-}" ]; then
         # pidgin
         PKGS="$PKGS pidgin"
-        if [ -n "$repo_epel" ]; then
+        if is_fedora || [ -n "$repo_epel" ]; then
             # pidgin-otr
             [ -z "${pkg_pidgin_otr-}" ] || PKGS="$PKGS pidgin-otr"
             # pidgin-hangouts
@@ -4181,7 +4190,7 @@ if [ -n "${has_de-}" ]; then
     # gimp
     [ -z "${pkg_gimp-}" ] || PKGS="$PKGS gimp"
 
-    if [ -n "$repo_epel" ]; then
+    if is_fedora || [ -n "$repo_epel" ]; then
         # qmmp
         [ -z "${pkg_qmmp-}" ] || PKGS="$PKGS qmmp"
         # rhythmbox
@@ -4256,7 +4265,7 @@ if [ -n "${has_de-}" ]; then
             # meld
             [ -z "${pkg_meld-}" ] || PKGS="$PKGS meld"
         fi
-    fi # [ -n "$repo_epel" ]
+    fi # is_fedora || [ -n "$repo_epel" ]
 
     # virt-manager
     [ -z "${pkg_virt_manager-}" ] || PKGS="$PKGS virt-manager"
@@ -4267,7 +4276,7 @@ if [ -n "${has_de-}" ]; then
     if [ -n "${pkg_wireshark-}" ]; then
        PKGS="$PKGS wireshark"
 
-       if centos_version_le $releasemaj 7; then
+       if is_fedora || centos_version_le $releasemaj 7; then
            # wireshark-gnome
            [ -z "${gtk_based_de-}" ] ||
                PKGS="$PKGS wireshark-gnome"
@@ -4309,7 +4318,7 @@ if [ -n "${pkg_cups-}" ]; then
     # cups-lpd
     [ -z "${pkg_cups_lpd-}" ] || PKGS="$PKGS cups-lpd"
 
-    if [ -n "$repo_epel" ]; then
+    if is_fedora || [ -n "$repo_epel" ]; then
         # cups-pdf
         [ -z "${pkg_cups_pdf-}" ] || PKGS="$PKGS cups-pdf"
 
