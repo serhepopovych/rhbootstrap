@@ -4213,8 +4213,10 @@ if [ -n "${has_de-}" ]; then
         if [ -n "${pkg_keepassx2-}" ]; then
             if centos_version_le $releasemaj 7; then
                 PKGS="$PKGS keepassx2"
-            else
+            elif is_centos || fedora_version_ge 26; then
                 PKGS="$PKGS keepassxc"
+            else
+                PKGS="$PKGS keepassx"
             fi
         fi
 
