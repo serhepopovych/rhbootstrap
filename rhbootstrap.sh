@@ -229,6 +229,180 @@ in_chroot_exec()
     _in_chroot "$@" || return
 }
 
+# Usage: return_var() <rc> <result> [<var>]
+return_var()
+{
+    local func="${FUNCNAME:-return_var}"
+
+    local rv_rc="${1:?missing 1st arg to ${func}() (<rc>)}"
+    local rv_result="${2-}"
+    local rv_var="${3-}"
+
+    if [ -n "${rv_var}" ]; then
+        eval "${rv_var}='${rv_result}'"
+    else
+        echo "${rv_result}"
+    fi
+
+    return ${rv_rc}
+}
+
+# Usage: version_cmp <v1> <v2> [<var_result>]
+version_cmp()
+{
+    local func="${FUNCNAME:-version_cmp}"
+
+    local v1="${1:?missing 1st arg to ${func}() <v1>}"
+    local v2="${2:?missing 2d arg to ${func}() <v2>}"
+
+    # Test cases:
+    # -----------
+    # version_cmp 5 5.0 -> 0
+    # version_cmp 5.10 5.a -> 1
+    # version_cmp 5a 5.0 -> -1
+    # version_cmp 5.0a 5.0 -> -1
+    # version_cmp 5alpha1 5.0 -> -1
+    # version_cmp 5beta1 5.0alpha1 -> 1
+    # version_cmp 5rc1 5-rc1 -> 0
+    # version_cmp 5.0-rc1 5.0rc1 -> 0
+    # version_cmp 5.0rc1 5beta1 -> 1
+    # version_cmp 5.0rc1 5.0 -> -1
+    # version_cmp 5.01 5.1 -> -1
+    # version_cmp 4.99 5.0 -> -1
+    # version_cmp 5.10 30 -> -1
+    # version_cmp 5.a.b.c 5.a.b.c -> 0
+    # version_cmp 5.a.b.c 5.a.b.d -> -1
+    # version_cmp a.b.c d.e.f -> -1
+    #
+    # Uncomment to make output like above:
+    # ------------------------------------
+    #echo -n "${func} $v1 $v2 -> "
+
+    # Only supported characters
+    [ -n "${v1##*[^[:alnum:].-]*}" ] || return
+    [ -n "${v2##*[^[:alnum:].-]*}" ] || return
+
+    # Translate '-' to '.'; make sure there is no empty subversion (..)
+    v1="$(echo "$v1" | sed 'y/-/./')" &&
+    v1=".$v1." && [ -n "${v1##*..*}" ] && v1="${v1#.}" && v1="${v1%.}" || return
+    v2="$(echo "$v2" | sed 'y/-/./')" &&
+    v2=".$v2." && [ -n "${v2##*..*}" ] && v2="${v2#.}" && v2="${v2%.}" || return
+
+    # Strip release type (i.e. a, alpha1, b, beta2, rc5, etc); end with '.'
+    local p1 p2 t
+
+    p1="${v1##*.}" && while :
+    do
+        t="${p1#[[:digit:]]}" && [ "$t" != "$p1" ] && p1="$t" || break
+    done
+    v1="${v1%$p1}" && v1="${v1%.}" && v1="$v1."
+
+    p2="${v2##*.}" && while :
+    do
+        t="${p2#[[:digit:]]}" && [ "$t" != "$p2" ] && p2="$t" || break
+    done
+    v2="${v2%$p2}" && v2="${v2%.}" && v2="$v2."
+
+    # Pad with '0.' to make version length equal
+    local c1 c2
+
+    c1=$(IFS='.' && set -- $v1 && echo $#)
+    c2=$(IFS='.' && set -- $v2 && echo $#)
+
+    t=$((c1 - c2))
+    while [ $t -ne 0 ]; do
+        if [ $t -lt 0 ]; then
+            v1="${v1}0."
+            : $((t += 1))
+        else
+            v2="${v2}0."
+            : $((t -= 1))
+        fi
+    done
+
+    # Append release type creating one if missing using 'z'
+      if [ -z "$p1" ]; then
+        t=${#p2}
+        while [ $((t -= 1)) -ge 0 ]; do
+            p1="${p1}z"
+        done
+    elif [ -z "$p2" ]; then
+        t=${#p1}
+        while [ $((t -= 1)) -ge 0 ]; do
+            p2="${p2}z"
+        done
+    fi
+    v1="${v1}${p1:+$p1.}"
+    v2="${v2}${p2:+$p2.}"
+
+    # For each subversion: compare
+    while :; do
+        c1="${v1%%.*}" && v1="${v1#$c1.}"
+        c2="${v2%%.*}" && v2="${v2#$c2.}"
+
+        [ "$c1" = "$c2" ] || break
+
+        if [ -z "$v1" ]; then
+            return_var 0 '0' "${3-}" && return
+        fi
+    done
+
+    # Force lexicographical comparison in expr(1) when value starts with '0'
+    [ -n "${c1##0*}" ] || c1="$c1."
+    [ -n "${c2##0*}" ] || c2="$c2."
+
+    expr "$c1" '>' "$c2" >/dev/null && return_var $?  '1' "${3-}" && return ||:
+    expr "$c1" '<' "$c2" >/dev/null && return_var $? '-1' "${3-}" && return ||:
+
+    # Never reached
+    return 3
+}
+
+is_centos() { [ "${distro-}" = 'centos' ] || return; }
+is_fedora() { [ "${distro-}" = 'fedora' ] || return; }
+
+# Usage: centos_version_cmp <v1> <v2>
+centos_version_cmp()
+{
+    is_centos && version_cmp "${1-}" "${2-}" || return
+}
+
+centos_version_lt() { [ "$(centos_version_cmp "$@")" = '-1' ] || return; }
+centos_version_eq() { [ "$(centos_version_cmp "$@")" =  '0' ] || return; }
+centos_version_gt() { [ "$(centos_version_cmp "$@")" =  '1' ] || return; }
+
+centos_version_le()
+{
+    centos_version_lt "$@" || centos_version_eq "$@" || return
+}
+centos_version_ge()
+{
+    centos_version_gt "$@" || centos_version_eq "$@" || return
+}
+
+centos_version_neq() { ! centos_version_eq "$@" || return; }
+
+# Usage: fedora_version_cmp <v1> <v2>
+fedora_version_cmp()
+{
+    is_fedora && version_cmp "${1-}" "${2-}" || return
+}
+
+fedora_version_lt() { [ "$(fedora_version_cmp "$@")" = '-1' ] || return; }
+fedora_version_eq() { [ "$(fedora_version_cmp "$@")" =  '0' ] || return; }
+fedora_version_gt() { [ "$(fedora_version_cmp "$@")" =  '1' ] || return; }
+
+fedora_version_le()
+{
+    fedora_version_lt "$@" || fedora_version_eq "$@" || return
+}
+fedora_version_ge()
+{
+    fedora_version_gt "$@" || fedora_version_eq "$@" || return
+}
+
+fedora_version_neq() { ! fedora_version_eq "$@" || return; }
+
 ## Parse options
 
 # Distribution to install/setup
@@ -1375,7 +1549,7 @@ _EOF
         fi # [ -n "$login_banners" ]
 
         # Disable lvmetad on CentOS/RHEL 7- to conform to 8+
-        if [ $releasemaj -le 7 ]; then
+        if centos_version_le $releasemaj 7; then
             t="$install_root/etc/lvm/lvm.conf"
             if [ -f "$t" ]; then
                 sed -i "$t" \
@@ -1567,7 +1741,7 @@ _EOF
 
             # Fix systemd-tmpfiles-setup.service on CentOS/RHEL 7;
             # see https://bugzilla.redhat.com/show_bug.cgi?id=1207083
-            if [ $releasemaj -eq 7 ]; then
+            if centos_version_eq $releasemaj 7; then
                 # /usr/lib/tmpfiles.d/legacy.conf: /var/lock -> ../run/lock
                 ln -sf '../run/lock' "$install_root/var/lock"
 
@@ -2601,7 +2775,7 @@ fi
 # $readonly_root
 
 if [ -n "$readonly_root" ]; then
-    if [ $releasemaj -gt 7 ]; then
+    if centos_version_gt $releasemaj 7; then
         in_chroot "$install_root" 'yum -y install readonly-root'
     fi
 
@@ -2761,7 +2935,7 @@ fi
 
 ## Release specific tricks
 
-if [ $releasemaj -gt 7 ]; then
+if centos_version_gt $releasemaj 7; then
     # Disable packages that not available in repositories for CentOS/RHEL 8+
     pkg_iucode_tool=
 
@@ -2934,7 +3108,7 @@ if [ -n "${pkg_shim-}" ]; then
     # shim-x64
     [ -z "${pkg_shim_x64-}" ] || PKGS="$PKGS shim-x64"
 
-    if [ $releasemaj -eq 7 ]; then
+    if centos_version_eq $releasemaj 7; then
         # shim-unsigned-ia32
         [ -z "${pkg_shim_unsigned_ia32-}" ] || PKGS="$PKGS shim-unsigned-ia32"
         # shim-unsigned-x64
@@ -3325,7 +3499,7 @@ fi
 
 [ -z "${pkg_tmux-}" ] || PKGS="$PKGS tmux"
 
-if [ $releasemaj -le 7 -o -n "$repo_epel" ]; then
+if centos_version_le $releasemaj 7 || [ -n "$repo_epel" ]; then
     # screen
     [ -z "${pkg_screen-}" ] || PKGS="$PKGS screen"
 fi
@@ -3488,7 +3662,7 @@ if [ -n "${grp_virt_host-}" ]; then
     # qemu-kvm
     if [ -n "${pkg_qemu_kvm-}" ]; then
         f=''
-        if [ $releasemaj -eq 7 ]; then
+        if centos_version_eq $releasemaj 7; then
             [ -z "$repo_openstack" -a \
               -z "$repo_ovirt" -a \
               -z "$repo_advanced_virtualization" \
@@ -3513,7 +3687,7 @@ if [ -n "${grp_virt_host-}" ]; then
 
     # qemu-xen
     if [ -n "${pkg_qemu_xen-}" ]; then
-        if [ $releasemaj -le 7 ]; then
+        if centos_version_le $releasemaj 7; then
             PKGS="$PKGS xen"
 
             # Install before any package from SIG
@@ -3555,7 +3729,7 @@ fi # [ -n "${grp_virt_guest-}" ]
 
 # cockpit
 if [ -n "${pkg_cockpit-}" ]; then
-    if [ $releasemaj -ge 7 ]; then
+    if centos_version_ge $releasemaj 7; then
         PKGS="$PKGS cockpit"
 
         # cockpit-machines
@@ -3647,7 +3821,7 @@ if [ -n "${pkg_xfce-}" ]; then
 
     # atril/evince
     if [ -n "${pkg_atril-}" ]; then
-        if [ $releasemaj -le 7 ]; then
+        if centos_version_le $releasemaj 7; then
             PKGS="$PKGS atril"
         else
             PKGS="$PKGS evince"
@@ -3945,17 +4119,15 @@ if [ -n "${has_de-}" ]; then
             PKGS="$PKGS libreoffice-wiki-publisher"
 
         if [ -n "${gtk_based_de-}" ]; then
-            if [ $releasemaj -eq 7 -a $releasemin -gt 4 ] ||
-               [ $releasemaj -eq 8 -a $releasemin -lt 3 ]
+            if centos_version_ge $releasever 7.4 ||
+               centos_version_lt $releasever 8.3
             then
                 # libreoffice-gtk2
                 pkg_enable libreoffice_gtk2
                 [ -z "${pkg_libreoffice_gtk2-}" ] ||
                     PKGS="$PKGS libreoffice-gtk2"
             fi
-            if [ $releasemaj -eq 7 -a $releasemin -gt 4 ] ||
-               [ $releasemaj -gt 7 ]
-            then
+            if centos_version_ge $releasever 7.4; then
                 # libreoffice-gtk3
                 pkg_enable libreoffice_gtk3
                 [ -z "${pkg_libreoffice_gtk3-}" ] ||
@@ -4025,7 +4197,7 @@ if [ -n "${has_de-}" ]; then
 
         # keepassx2/keepassxc
         if [ -n "${pkg_keepassx2-}" ]; then
-            if [ $releasemaj -le 7 ]; then
+            if centos_version_le $releasemaj 7; then
                 PKGS="$PKGS keepassx2"
             else
                 PKGS="$PKGS keepassxc"
@@ -4096,7 +4268,7 @@ if [ -n "${has_de-}" ]; then
     if [ -n "${pkg_wireshark-}" ]; then
        PKGS="$PKGS wireshark"
 
-       if [ $releasemaj -le 7 ]; then
+       if centos_version_le $releasemaj 7; then
            # wireshark-gnome
            [ -z "${gtk_based_de-}" ] ||
                PKGS="$PKGS wireshark-gnome"
@@ -4239,7 +4411,7 @@ fi # [ -n "${pkg_nm-}" ]
 
 # network-scripts
 if [ -n "${pkg_network_scripts-}" ]; then
-    if [ $releasemaj -gt 7 ]; then
+    if centos_version_gt $releasemaj 7; then
         PKGS="$PKGS network-scripts"
     fi
 fi
