@@ -3033,7 +3033,7 @@ if [ -n "${pkg_plymouth-}" ]; then
     [ -z "${pkg_plymouth_plugin_space_flares-}" ] ||
         PKGS="$PKGS plymouth-plugin-space-flares"
     # plymouth-plugin-throbgress
-    [ -z "${pkg_plymouth_plugin-throbgress-}" ] ||
+    [ -z "${pkg_plymouth_plugin_throbgress-}" ] ||
         PKGS="$PKGS plymouth-plugin-throbgress"
     # plymouth-plugin-two-step
     [ -z "${pkg_plymouth_plugin_two_step-}" ] ||
