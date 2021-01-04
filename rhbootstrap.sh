@@ -2688,7 +2688,7 @@ yum -y \
     --exclude='*firmware*' \
     --exclude='alsa*' \
     --exclude='libertas*' \
-    --exclude='microcode_ctl' --exclude='linux-firmware' \
+    --exclude='microcode_ctl' \
     --exclude='grub2-pc*' --exclude='grub2-efi*' \
     --exclude='NetworkManager*' \
     --exclude='teamd' \
@@ -3143,7 +3143,13 @@ fi
 
 pkg_switch kernel
 if [ -n "${pkg_kernel-}" ]; then
-    PKGS="$PKGS kernel microcode_ctl linux-firmware"
+    PKGS="$PKGS kernel microcode_ctl"
+
+    if fedora_version_le 12 || centos_version_lt 7; then
+        PKGS="$PKGS kernel-firmware"
+    else
+        PKGS="$PKGS linux-firmware"
+    fi
 
     ## /usr/lib/kernel/install.d/zz-symlink-to-root.install
     f="$install_root/usr/lib/kernel/install.d"
