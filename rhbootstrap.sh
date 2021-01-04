@@ -2970,8 +2970,8 @@ if centos_version_gt $releasemaj 7; then
     pkg_libreoffice_postgresql=0
     pkg_libreoffice_rhino=0
 
-    # No qmmp in EPEL for CentOS/RHEL 8: try deafbeef
-    [ -z "${pkg_qmmp-}" ] || pkg_deadbeef=1
+    # No qmmp in EPEL for CentOS/RHEL 8: try rhythmbox
+    [ -z "${pkg_qmmp-}" ] || pkg_rhythmbox=1
     pkg_qmmp=
 
     pkg_putty=
@@ -4184,10 +4184,9 @@ if [ -n "${has_de-}" ]; then
     if [ -n "$repo_epel" ]; then
         # qmmp
         [ -z "${pkg_qmmp-}" ] || PKGS="$PKGS qmmp"
+        # rhythmbox
+        [ -z "${pkg_rhythmbox-}" ] || PKGS="$PKGS rhythmbox"
 
-        # deadbeef
-        [ -z "$repo_rpm_fusion" -o -z "${pkg_deadbeef-}" ] ||
-            PKGS="$PKGS deadbeef"
         # vlc
         [ -z "$repo_rpm_fusion" -o -z "${pkg_vlc-}" ] ||
             PKGS="$PKGS vlc"
