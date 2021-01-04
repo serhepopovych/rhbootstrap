@@ -2530,12 +2530,6 @@ distro_fedora()
         fi
 
         # On old/new Fedora we do
-
-        # ... not support nfs-root
-        nfs_root=''
-
-        # ... support only minimal install
-        minimal_install=1
     }
 
     local host subdir url
@@ -2775,7 +2769,9 @@ fi
 # $readonly_root
 
 if [ -n "$readonly_root" ]; then
-    if centos_version_gt $releasemaj 7; then
+    if centos_version_gt $releasemaj 7 ||
+       fedora_version_gt $releasemaj 28
+    then
         in_chroot "$install_root" 'yum -y install readonly-root'
     fi
 
