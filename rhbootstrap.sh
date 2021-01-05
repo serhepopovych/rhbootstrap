@@ -2565,6 +2565,9 @@ distro_fedora()
         fi
 
         # On old/new Fedora we do
+
+        # ... not support nfs-root for Fedora < 12
+        [ $releasemaj -ge 12 ] || nfs_root=''
     }
 
     local host subdir url
