@@ -2156,6 +2156,7 @@ is_archive=''
 # has specific feature
 has_glibc_langpack=''
 has_repo=''
+has_epel=''
 
 # Usage: distro_disable_extra_repos
 distro_disable_extra_repos()
@@ -2348,26 +2349,30 @@ distro_centos()
                 rpm -i '$EPEL_RELEASE_URL'
             " && has_enable 'repo' || repo_epel=''
 
-            if [ -n "$is_archive" ]; then
-                # Unsupported releases available at $url
-                local url="http://archives.fedoraproject.org/pub/archive/epel"
-                local t="\$releasever\|$releasemaj"
+            if [ -n "$repo_epel" ]; then
+                if [ -n "$is_archive" ]; then
+                    # Unsupported releases available at $url
+                    local url="http://archives.fedoraproject.org/pub/archive/epel"
+                    local t="\$releasever\|$releasemaj"
 
-                local baseurl_p1="^#\?\(baseurl\)=.\+/\($t\)/\(.\+\)$"
-                local baseurl_p2="\1=$url/\$releasever/\3"
+                    local baseurl_p1="^#\?\(baseurl\)=.\+/\($t\)/\(.\+\)$"
+                    local baseurl_p2="\1=$url/\$releasever/\3"
 
-                find "$install_root/etc/yum.repos.d" \
-                    -name 'epel*.repo' -a -type f -a -exec \
-                sed -i \
-                    -e 's,^\(mirrorlist\|metalink\)=,#\1=,' \
-                    -e "s,$baseurl_p1,$baseurl_p2," \
-                {} \+
-            fi
+                    find "$install_root/etc/yum.repos.d" \
+                        -name 'epel*.repo' -a -type f -a -exec \
+                    sed -i \
+                        -e 's,^\(mirrorlist\|metalink\)=,#\1=,' \
+                        -e "s,$baseurl_p1,$baseurl_p2," \
+                    {} \+
+                fi
 
-            if [ $releasemaj -eq 4 -a $releasemin -le 3 ]; then
-                # Backup /etc/yum.conf since yum(1) from epel does not have one
-                local t="$install_root/etc/yum.conf"
-                ln -nf "$t" "$t.rpmorig" ||:
+                if [ $releasemaj -eq 4 -a $releasemin -le 3 ]; then
+                    # Backup /etc/yum.conf since yum(1) from EPEL doesn't have it
+                    local t="$install_root/etc/yum.conf"
+                    ln -nf "$t" "$t.rpmorig" ||:
+                fi
+
+                has_epel=1
             fi
         fi
 
@@ -2637,6 +2642,9 @@ distro_fedora()
 
     # No country/continent mirrors
     cc=''
+
+    # Has EPEL packages
+    has_epel=1
 
     # No EPEL repository
     repo_epel=''
@@ -3458,9 +3466,8 @@ _EOF
     [ -z "${pkg_kdump-}" ] || PKGS="$PKGS kexec-tools"
     # dkms
     pkg_switch dkms
-    if is_fedora || [ -n "$repo_epel" ]; then
-        [ -z "${pkg_dkms-}" ] || PKGS="$PKGS dkms kernel-devel"
-    fi
+    [ -z "$has_epel" -o -z "${pkg_dkms-}" ] ||
+        PKGS="$PKGS dkms kernel-devel"
 else
     pkg_kdump=
     pkg_dkms=
@@ -3489,10 +3496,7 @@ if [ -n "${pkg_zsh-}" ]; then
         PKGS="$PKGS zsh-syntax-highlighting"
 fi
 
-if is_fedora || [ -n "$repo_epel" ]; then
-    [ -z "${pkg_dash-}" ] || PKGS="$PKGS dash"
-fi
-
+[ -z "$has_epel" -o -z "${pkg_dash-}" ] || PKGS="$PKGS dash"
 [ -z "${pkg_mksh-}" ] || PKGS="$PKGS mksh"
 
 [ -z "${pkg_psmisc-}" ] || PKGS="$PKGS psmisc"
@@ -3509,7 +3513,7 @@ fi
 [ -z "${pkg_lynx-}" ] || PKGS="$PKGS lynx"
 [ -z "${pkg_mutt-}" ] || PKGS="$PKGS mutt"
 
-if is_fedora || [ -n "$repo_epel" ]; then
+if [ -n "$has_epel" ]; then
     # elinks
     [ -z "${pkg_elinks-}" ] || PKGS="$PKGS elinks"
     # links
@@ -3535,9 +3539,7 @@ fi
 
 [ -z "${pkg_tmux-}" ] || PKGS="$PKGS tmux"
 
-if is_fedora || [ -n "$repo_epel" ] ||
-   centos_version_le $releasemaj 7
-then
+if [ -n "$has_epel" ] || centos_version_le $releasemaj 7; then
     # screen
     [ -z "${pkg_screen-}" ] || PKGS="$PKGS screen"
 fi
@@ -3567,7 +3569,7 @@ fi
 
 [ -z "${pkg_iotop-}" ] || PKGS="$PKGS iotop"
 
-if is_fedora || [ -n "$repo_epel" ]; then
+if [ -n "$has_epel" ]; then
     # atop
     [ -z "${pkg_atop-}" ]  || PKGS="$PKGS atop"
     # htop
@@ -3634,10 +3636,7 @@ fi # [ -n "${grp_block_utils-}" ]
 
 # Filesystem utils
 
-if is_fedora || [ -n "$repo_epel" ]; then
-    [ -z "${pkg_ntfs_3g-}" ] || PKGS="$PKGS ntfs-3g"
-fi
-
+[ -z "$has_epel" -o -z "${pkg_ntfs_3g-}" ] || PKGS="$PKGS ntfs-3g"
 [ -z "${pkg_ntfsprogs-}" ] || PKGS="$PKGS ntfsprogs"
 [ -z "${pkg_xfsprogs-}" ] || PKGS="$PKGS xfsprogs"
 [ -z "${pkg_btrfs_progs-}" ] || PKGS="$PKGS btrfs-progs"
@@ -3666,7 +3665,7 @@ fi
 [ -z "${pkg_wget-}" ] || PKGS="$PKGS wget"
 [ -z "${pkg_rsync-}" ] || PKGS="$PKGS rsync"
 
-if is_fedora || [ -n "$repo_epel" ]; then
+if [ -n "$has_epel" ]; then
     # hping3
     [ -z "${pkg_hping3-}" ] || PKGS="$PKGS hping3"
     # bind-utils
@@ -3818,7 +3817,7 @@ fi
 
 ## Xfce
 
-if is_centos && [ -z "$repo_epel" ]; then
+if [ -z "$has_epel" ]; then
     # No Xfce when EPEL disabled
     pkg_xfce=
 fi
@@ -3919,7 +3918,7 @@ fi # [ -n "${pkg_xfce-}" ]
 
 ## MATE
 
-if is_centos && [ -z "$repo_epel" ]; then
+if [ -z "$has_epel" ]; then
     # No MATE when EPEL disabled
     pkg_mate=
 fi
@@ -3986,7 +3985,7 @@ if [ -n "${has_de-}" ]; then
             ;;
         'x2go')
             # x2goserver
-            if is_fedora || [ -n "$repo_epel" ]; then
+            if [ -n "$has_epel" ]; then
                 PKGS="$PKGS x2goserver"
 
                 # x2goserver-desktopsharing
@@ -4062,7 +4061,7 @@ if [ -n "${has_de-}" ]; then
             PKGS="$PKGS xorg-x11-fonts-misc"
     fi
 
-    if is_fedora || [ -n "$repo_epel" ]; then
+    if [ -n "$has_epel" ]; then
         # guake
         [ -z "${pkg_guake-}" ] || PKGS="$PKGS guake"
 
@@ -4124,7 +4123,7 @@ if [ -n "${has_de-}" ]; then
     if [ -n "${pkg_pidgin-}" ]; then
         # pidgin
         PKGS="$PKGS pidgin"
-        if is_fedora || [ -n "$repo_epel" ]; then
+        if [ -n "$has_epel" ]; then
             # pidgin-otr
             [ -z "${pkg_pidgin_otr-}" ] || PKGS="$PKGS pidgin-otr"
             # pidgin-hangouts
@@ -4222,7 +4221,7 @@ if [ -n "${has_de-}" ]; then
     # gimp
     [ -z "${pkg_gimp-}" ] || PKGS="$PKGS gimp"
 
-    if is_fedora || [ -n "$repo_epel" ]; then
+    if [ -n "$has_epel" ]; then
         # qmmp
         [ -z "${pkg_qmmp-}" ] || PKGS="$PKGS qmmp"
         # rhythmbox
@@ -4299,7 +4298,7 @@ if [ -n "${has_de-}" ]; then
             # meld
             [ -z "${pkg_meld-}" ] || PKGS="$PKGS meld"
         fi
-    fi # is_fedora || [ -n "$repo_epel" ]
+    fi # [ -n "$has_epel" ]
 
     # virt-manager
     [ -z "${pkg_virt_manager-}" ] || PKGS="$PKGS virt-manager"
@@ -4352,7 +4351,7 @@ if [ -n "${pkg_cups-}" ]; then
     # cups-lpd
     [ -z "${pkg_cups_lpd-}" ] || PKGS="$PKGS cups-lpd"
 
-    if is_fedora || [ -n "$repo_epel" ]; then
+    if [ -n "$has_epel" ]; then
         # cups-pdf
         [ -z "${pkg_cups_pdf-}" ] || PKGS="$PKGS cups-pdf"
 
@@ -4488,7 +4487,7 @@ if [ -n "${pkg_vdpau-}" ]; then
     # mesa-vdpau-drivers
     [ -z "${pkg_mesa-}" ] || PKGS="$PKGS mesa-vdpau-drivers"
 
-    if [ -n "$repo_epel" ]; then
+    if [ -n "$has_epel" ]; then
         # vdpauinfo
         [ -z "${pkg_vdpauinfo-}" ] || PKGS="$PKGS vdpauinfo"
 
@@ -4505,7 +4504,7 @@ fi
 if [ -n "${pkg_va-}" ]; then
     PKGS="$PKGS libva"
 
-    if [ -n "$repo_epel" ]; then
+    if [ -n "$has_epel" ]; then
         # libva-utils
         [ -z "${pkg_va_utils-}" ] || PKGS="$PKGS libva-utils"
         # libva-vdpau-driver
@@ -4513,7 +4512,7 @@ if [ -n "${pkg_va-}" ]; then
             PKGS="$PKGS libva-vdpau-driver"
     fi
 
-    if [ -n "$repo_epel" ]; then
+    if [ -n "$has_epel" ]; then
         # libva-intel-hybrid-driver
         [ -z "${pkg_va_intel_hybrid_driver-}" ] ||
             PKGS="$PKGS libva-intel-hybrid-driver"
