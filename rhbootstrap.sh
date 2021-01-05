@@ -2204,6 +2204,18 @@ distro_centos()
     # Usage: distro_post_core_hook
     distro_post_core_hook()
     {
+        local releasemin
+
+        # Determine actually installed version (e.g. 8 -> 8.3)
+        releasever="$(
+            sed -n \
+                -e '1 s/^CentOS\s\+.\+\s\+\([0-9]\+\.[0-9]\+\).*$/\1/p' \
+                '/etc/centos-release' \
+                #
+        )"
+        releasemaj="${releasever%.*}"
+        releasemin="${releasever#*.}"
+
         if [ -n "$is_archive" ]; then
             # Releases available at $baseurl
             local url="${baseurl%/$releasever/*}"
@@ -2451,7 +2463,7 @@ distro_centos()
     }
 
     local host subdir url
-    local _releasemin=255
+    local _releasemin=255 releasemin
 
     # $releasever
     releasever_orig="$releasever"
@@ -2471,7 +2483,6 @@ distro_centos()
 
         [ $releasemaj -ge 4 ] ||
             fatal 'no support for CentOS before 4 (no yum?)'
-
 
         if [ "$releasemaj" != "$releasever" ]; then
             releasemin="${releasever#$releasemaj.}"
@@ -2600,7 +2611,6 @@ distro_fedora()
     }
 
     local host subdir url
-    local _releasemin=255
 
     # $releasever
     releasever_orig="$releasever"
@@ -2614,7 +2624,6 @@ distro_fedora()
         [ $releasemaj -ge 10 ] ||
             fatal 'no support for Fedora before 10 (Fedora Core?)'
     fi
-    releasemin=${_releasemin}
 
     # $subdir
     subdir='fedora/linux'
@@ -6854,7 +6863,7 @@ if [ -n "${has_de-}" ]; then
             PKGS="$PKGS libreoffice-wiki-publisher"
 
         if [ -n "${gtk_based_de-}" ]; then
-            if centos_version_ge $releasever 7.4 ||
+            if centos_version_ge $releasever 7.4 &&
                centos_version_lt $releasever 8.3
             then
                 # libreoffice-gtk2
