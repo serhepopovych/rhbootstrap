@@ -2040,9 +2040,9 @@ _EOF
         if [ -n "${pkg_grub2-}" ]; then
             in_chroot "$install_root" '
                  [ ! -L /etc/grub2.cfg ] ||
-                    grub2-mkconfig -o "$(readlink /etc/grub2.cfg)"
+                    grub2-mkconfig -o "$(readlink -f /etc/grub2.cfg)"
                  [ ! -L /etc/grub2-efi.cfg ] ||
-                    grub2-mkconfig -o "$(readlink /etc/grub2-efi.cfg)"
+                    grub2-mkconfig -o "$(readlink -f /etc/grub2-efi.cfg)"
             '
         fi
 
