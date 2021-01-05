@@ -5493,6 +5493,13 @@ if [ -n "$nfs_root" ]; then
     # Set nameserver(s)
     nameservers="${nameservers:-${_nameservers}}"
 
+    # Install /etc/dracut.conf.d
+    install -d "$install_root/etc/dracut.conf.d"
+
+    # Build generic image regardless of dracut-config-generic
+    echo 'hostonly="no"' \
+        >"$install_root/etc/dracut.conf.d/00-generic-image.conf"
+
     # Add "nfs" dracut module (from dracut-network package)
     echo 'add_dracutmodules+=" nfs "' \
         >"$install_root/etc/dracut.conf.d/01-nfs.conf"
