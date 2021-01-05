@@ -461,7 +461,7 @@ repo_advanced_virtualization=''
 repo_openstack=''
 repo_ovirt=''
 repo_elrepo=''
-repo_rpm_fusion=''
+repo_rpmfusion=''
 
 # NFS root
 nfs_root=''
@@ -789,10 +789,10 @@ while [ $# -gt 0 ]; do
             ;;
         # RPM Fusion
         --no-repo-rpm-fusion)
-            repo_rpm_fusion=''
+            repo_rpmfusion=''
             ;;
         --repo-rpm-fusion)
-            repo_rpm_fusion=1
+            repo_rpmfusion=1
             ;;
 
         --nfs-root)
@@ -2167,7 +2167,7 @@ distro_disable_extra_repos()
     repo_openstack=''
     repo_ovirt=''
     repo_elrepo=''
-    repo_rpm_fusion=''
+    repo_rpmfusion=''
 }
 
 # Usage: distro_centos
@@ -2230,7 +2230,7 @@ distro_centos()
         local ADVANCED_VIRTUALIZATION_RELEASE_RPM
         local OPENSTACK_RELEASE_RPM
         local OVIRT_RELEASE_RPM
-        local RPM_FUSION_URL RPM_FUSION_RELEASE_RPM RPM_FUSION_RELEASE_URL
+        local RPMFUSION_URL RPMFUSION_RELEASE_RPM RPMFUSION_RELEASE_URL
         local VIRTIO_WIN_URL
 
         # VirtIO-Win
@@ -2257,9 +2257,9 @@ distro_centos()
             OVIRT_RELEASE_RPM='centos-release-ovirt44'
 
             # RPM Fusion
-            RPM_FUSION_URL='https://download1.rpmfusion.org/free/el'
-            RPM_FUSION_RELEASE_RPM='rpmfusion-free-release-8.noarch.rpm'
-            RPM_FUSION_RELEASE_URL="$RPM_FUSION_URL/$RPM_FUSION_RELEASE_RPM"
+            RPMFUSION_URL='https://download1.rpmfusion.org/free/el'
+            RPMFUSION_RELEASE_RPM='rpmfusion-free-release-8.noarch.rpm'
+            RPMFUSION_RELEASE_URL="$RPMFUSION_URL/$RPMFUSION_RELEASE_RPM"
         elif [ $releasemaj -eq 7 ]; then
             # EPEL
             EPEL_URL='http://dl.fedoraproject.org/pub/epel'
@@ -2281,9 +2281,9 @@ distro_centos()
             OVIRT_RELEASE_RPM='centos-release-ovirt43'
 
             # RPM Fusion
-            RPM_FUSION_URL='https://download1.rpmfusion.org/free/el'
-            RPM_FUSION_RELEASE_RPM='rpmfusion-free-release-7.noarch.rpm'
-            RPM_FUSION_RELEASE_URL="$RPM_FUSION_URL/$RPM_FUSION_RELEASE_RPM"
+            RPMFUSION_URL='https://download1.rpmfusion.org/free/el'
+            RPMFUSION_RELEASE_RPM='rpmfusion-free-release-7.noarch.rpm'
+            RPMFUSION_RELEASE_URL="$RPMFUSION_URL/$RPMFUSION_RELEASE_RPM"
         else
             # On old/new CentOS we do
 
@@ -2331,8 +2331,8 @@ distro_centos()
             repo_advanced_virtualization=''
         fi
 
-        # $repo_epel, $repo_rpm_fusion
-        if [ -n "$repo_rpm_fusion" ]; then
+        # $repo_epel, $repo_rpmfusion
+        if [ -n "$repo_rpmfusion" ]; then
             repo_epel=1
         fi
 
@@ -2412,10 +2412,10 @@ distro_centos()
         fi
 
         # RPM Fusion
-        if [ -n "$repo_rpm_fusion" ]; then
+        if [ -n "$repo_rpmfusion" ]; then
             in_chroot "$install_root" "
-                rpm -i '$RPM_FUSION_RELEASE_URL'
-            " && has_enable 'repo' || repo_rpm_fusion=''
+                rpm -i '$RPMFUSION_RELEASE_URL'
+            " && has_enable 'repo' || repo_rpmfusion=''
         fi
     }
 
@@ -4231,7 +4231,7 @@ if [ -n "${has_de-}" ]; then
         [ -z "${pkg_rhythmbox-}" ] || PKGS="$PKGS rhythmbox"
 
         # vlc
-        [ -z "$repo_rpm_fusion" -o -z "${pkg_vlc-}" ] ||
+        [ -z "$repo_rpmfusion" -o -z "${pkg_vlc-}" ] ||
             PKGS="$PKGS vlc"
 
         # dia
