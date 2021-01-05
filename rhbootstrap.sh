@@ -124,6 +124,36 @@ _exit()
     exit $rc
 }
 
+# Usage: has_enable <var>
+has_enable()
+{
+    local rc=$?
+
+    local func="${FUNCNAME:-has_enable}"
+
+    local var="${1:?missing 1st arg to ${func}() <var>}"
+
+    var="has_${var#has_}"
+    eval "$var=\$((\${$var-0} + 1)) && [ "\$$var" -gt 0 ] || $var=''"
+
+    return $rc
+}
+
+# Usage: has_disable <var>
+has_disable()
+{
+    local rc=$?
+
+    local func="${FUNCNAME:-has_disable}"
+
+    local var="${1:?missing 1st arg to ${func}() <var>}"
+
+    var="has_${var#has_}"
+    eval "$var=\$((\${$var-0} - 1)) && [ "\$$var" -gt 0 ] || $var=''"
+
+    return $rc
+}
+
 # Usage: pkg_name <pkg_name>
 pkg_name()
 {
@@ -2316,7 +2346,7 @@ distro_centos()
 
             in_chroot "$install_root" "
                 rpm -i '$EPEL_RELEASE_URL'
-            " && has_repo=1
+            " && has_enable 'repo' || repo_epel=''
 
             if [ -n "$is_archive" ]; then
                 # Unsupported releases available at $url
@@ -2345,42 +2375,42 @@ distro_centos()
         if [ -n "$repo_elrepo" ]; then
             in_chroot "$install_root" "
                 rpm -i '$ELREPO_RELEASE_URL'
-            " && has_repo=1 || repo_elrepo=''
+            " && has_enable 'repo' || repo_elrepo=''
         fi
 
         # VirtIO-Win
         if [ -n "$repo_virtio_win" ]; then
             curl -s -o "$install_root/etc/yum.repos.d/virtio-win.repo" \
                 "$VIRTIO_WIN_URL" \
-            && has_repo=1 || repo_virtio_win=''
+            && has_enable 'repo' || repo_virtio_win=''
         fi
 
         # Advanced Virtualization
         if [ -n "$repo_advanced_virtualization" ]; then
             in_chroot "$install_root" "
                 yum -y $nogpgcheck install '$ADVANCED_VIRTUALIZATION_RELEASE_RPM'
-            " && has_repo=1 || repo_advanced_virtualization=''
+            " && has_enable 'repo' || repo_advanced_virtualization=''
         fi
 
         # OpenStack
         if [ -n "$repo_openstack" ]; then
             in_chroot "$install_root" "
                 yum -y $nogpgcheck install '$OPENSTACK_RELEASE_RPM'
-            " && has_repo=1 || repo_openstack=''
+            " && has_enable 'repo' || repo_openstack=''
         fi
 
         # oVirt
         if [ -n "$repo_ovirt" ]; then
             in_chroot "$install_root" "
                 yum -y $nogpgcheck install '$OVIRT_RELEASE_RPM'
-            " && has_repo=1 || repo_ovirt=''
+            " && has_enable 'repo' || repo_ovirt=''
         fi
 
         # RPM Fusion
         if [ -n "$repo_rpm_fusion" ]; then
             in_chroot "$install_root" "
                 rpm -i '$RPM_FUSION_RELEASE_URL'
-            " && has_repo=1 || repo_rpm_fusion=''
+            " && has_enable 'repo' || repo_rpm_fusion=''
         fi
     }
 
