@@ -1,0 +1,15 @@
+These GPG keys obtained from various sources:
+
+  1) fedora-gpg-keys-33-1.noarch.rpm (Fedora 33 release)
+      Fedora GPG keys
+  2) distribution-gpg-keys-1.46.1.el8.noarch.rpm (EPEL for CentOS 8)
+      RPMfusion GPG keys
+  3) Specific centos-release-* packages (e.g. centos-release-virt-common)
+      OpenStack, NFV and other SIGs GPG keys
+  4) Repository site (e.g. ELRepo, vault.centos.org)
+      CentOS GPG keys
+
+For 1) .. 3) authentity and integrity validated either by yum(1) gpgcheck=1
+or by rpm -K ... command.
+
+For 4) key at least downloaded via SSL/TLS from official repository website.
