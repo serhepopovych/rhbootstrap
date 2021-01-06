@@ -2016,30 +2016,37 @@ bind F eval "hardstatus alwayslastline"
 _EOF
         }
 
+        # Usage: make_xdg_dirs <homedir>
+        make_xdg_dirs()
+        {
+            local d="$1"
+
+            if [ -d "$d" ]; then
+                install -d \
+                    "$d/.local" "$d/.local/share" "$d/.local/bin" \
+                    "$d/.cache" "$d/.config" \
+                    #
+                install -d -m 0700 \
+                    "$d/.ssh" \
+                    "$d/tmp" \
+                    #
+                ln -sf '.local/bin' "$d/bin"
+            fi
+        }
+
         # /root
         t="$(in_chroot_exec "$install_root" 't=~root; echo "t='\''$t'\''"')"
-        if eval "$t" && t="$install_root/$t" && [ -d "$t" ]; then
-            install -d \
-                "$t/.local" "$t/.local/share" "$t/.local/bin" \
-                "$t/.cache" "$t/.config"
-            install -d -m 0700 \
-                "$t/.ssh" \
-                "$t/tmp"
-            ln -sf '.local/bin' "$t/bin"
-        fi
+        eval "$t" && t="$install_root/$t"
+
+        make_xdg_dirs "$t"
         mc_ini "$t"
         screenrc "$t"
         ssh_agent_start4bashrc "$t"
 
         # /etc/skel
         t="$install_root/etc/skel"
-        install -d \
-            "$t/.local" "$t/.local/share" "$t/.local/bin" \
-            "$t/.cache" "$t/.config"
-        install -d -m 0700 \
-            "$t/.ssh" \
-            "$t/tmp"
-        ln -sf '.local/bin' "$t/bin"
+
+        make_xdg_dirs "$t"
         mc_ini "$t"
         screenrc "$t"
         ssh_agent_start4bashrc "$t"
