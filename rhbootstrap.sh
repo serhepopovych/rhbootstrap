@@ -530,6 +530,20 @@ config_resolv_conf()
     fi
 }
 
+# Usage: config_sshd
+config_sshd()
+{
+    local file="$install_root/etc/ssh/sshd_config"
+    if [ -f "$file" ]; then
+        sed -i "$file" \
+            -e '/^#\?LoginGraceTime/iAllowGroups root users' \
+            -e 's/^#\?\(PermitRootLogin\s\+\).*$/\1without-password/' \
+            -e 's/^#\?\(UseDNS\s\+\).*$/\1no/' \
+            -e 's/^#\?\(VersionAddendum\s\+\).*$/\1none/' \
+            #
+    fi
+}
+
 # Usage: config_lvm2
 config_lvm2()
 {
@@ -634,6 +648,55 @@ config_libvirt()
                 ${r5:+-e "$r5"} \
                 #
         fi
+    fi
+}
+
+# Usage: config_virt_p2v
+config_virt_p2v()
+{
+    local user='virt-p2v'
+
+    # Add sudoers(5) file
+    local t="$install_root/etc/sudoers.d"
+    if [ -d "$t" ]; then
+        t="$t/$user"
+        if [ ! -e "$t" ]; then
+            # Remove broken symlink
+            rm -f "$t" ||:
+            cat >"$t" <<EOF
+$user	ALL = (root:root) NOPASSWD: ALL
+EOF
+            chmod 0600 "$t" ||:
+        fi
+    fi
+
+    # Add user and group
+    in_chroot "$install_root" \
+        "useradd -M -d / -s '/bin/sh' '$user'"
+
+    # Add user to libvirt group and change it's ~ if libvirt installed
+    if [ -n "${pkg_libvirt-}" ]; then
+        in_chroot "$install_root" \
+            "usermod -a -G libvirt -d '/var/lib/libvirt' '$user'"
+    fi
+
+    # Configure sshd(8)
+    local file="$install_root/etc/ssh/sshd_config"
+    if [ -f "$file" ]; then
+        in_chroot "$install_root" "usermod -a -G users '$user'"
+
+        local keys='/etc/ssh/authorized_keys'
+        install -d -m 0751 "$install_root$keys"
+
+        cat >>"$file" <<EOF
+
+Match User $user
+	X11Forwarding no
+	AllowTcpForwarding yes
+	PasswordAuthentication no
+	PubkeyAuthentication yes
+	AuthorizedKeysFile $keys/%u
+EOF
     fi
 }
 
@@ -1812,6 +1875,9 @@ _EOF
         # Configure nameserver(s) in resolv.conf
         config_resolv_conf
 
+        # Configure openssh-server
+        config_sshd
+
         # Configure lvm2
         config_lvm2
 
@@ -1832,6 +1898,7 @@ _EOF
             config_kvm
             config_libvirt_qemu
             config_libvirt
+            config_virt_p2v
         fi
 
         # Enable iptables and ip6tables if given
