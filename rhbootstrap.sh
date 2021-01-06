@@ -459,6 +459,245 @@ fedora_version_ge()
 
 fedora_version_neq() { ! fedora_version_eq "$@" || return; }
 
+## Post install configuration snippets
+
+# Usage: config_login_banners
+config_login_banners()
+{
+    # Update /etc/issue, /etc/issue.net and /etc/motd banners
+    $(
+        PRETTY_NAME=''
+
+        # Source in subshell to not pollute environment
+        t="$install_root/etc/os-release"
+        [ -f "$t" ] && . "$t" >/dev/null 2>&1 || PRETTY_NAME=''
+
+        if [ -z "$PRETTY_NAME" ]; then
+            t="$install_root/etc/redhat-release"
+            PRETTY_NAME="$(
+                sed -n \
+                    -e '1 s/^\(.\+\)\s\+release\s\+\(.*\)$/\1 \2/p' \
+                    "$t" \
+                    #
+            )"
+            if [ -z "$PRETTY_NAME" ]; then
+                PRETTY_NAME="$(uname -s)"
+            fi
+        fi
+
+        # /etc/issue
+        banner="$install_root/etc/issue"
+        if [ -f "$banner" ]; then
+            cat >"$banner" <<_EOF
+$PRETTY_NAME
+
+  Hostname : \n
+  TTY      : \l${nfs_root:+
+  IPv4     : \4
+  IPv6     : \6}
+
+_EOF
+        fi
+
+        # /etc/issue.net
+        banner="$install_root/etc/issue.net"
+        if [ -f "$banner" ]; then
+            cat >"$banner" <<'_EOF'
+_EOF
+        fi
+
+        # /etc/motd
+        banner="$install_root/etc/motd"
+        if [ -f "$banner" ]; then
+            cat >"$banner" <<'_EOF'
+_EOF
+        fi
+    )
+}
+
+# Usage: config_resolv_conf
+config_resolv_conf()
+{
+    local t="$install_root/etc/resolv.conf"
+    if [ -n "${nameservers}${install_root%/}" ]; then
+        : >"$t"
+    fi
+    if [ -n "${nameservers}" ]; then
+        local n
+        for n in ${nameservers}; do
+            echo "nameserver $n" >>"$t"
+        done
+    fi
+}
+
+# Usage: config_lvm2
+config_lvm2()
+{
+    # Disable lvmetad to conform to CentOS 8+
+    local t="$install_root/etc/lvm/lvm.conf"
+    if [ -f "$t" ]; then
+        sed -i "$t" \
+            -e '/^\s*use_lvmetad\s*=\s*[0-9]\+\s*$/s/[0-9]/0/' \
+            #
+        in_chroot "$install_root" \
+            'systemctl mask lvm2-lvmetad.service lvm2-lvmetad.socket'
+        in_chroot "$install_root" \
+            'systemctl stop lvm2-lvmetad.service lvm2-lvmetad.socket'
+    fi
+}
+
+# Usage: config_kvm
+config_kvm()
+{
+    # Enable/disable KVM nested virtualization
+    local t="$install_root/etc/modprobe.d/kvm.conf"
+    if [ -f "$t" ]; then
+        local r='s/^#\?\($n\)=[0-9]\+\(.*\)/\1=$v\4/'
+        local r1
+        local n='options\s\+\(kvm_\(intel\|amd\)\)\s\+nested'
+        local v="$kvm_nested"
+
+        if [ -n "$v" ] ; then
+            [ "$v" -eq 1 ] 2>/dev/null || v=0
+
+            eval "r1=\"$r\""
+
+            sed -i "$t" \
+                ${r1:+-e "$r1"} \
+                #
+        fi
+    fi
+}
+
+# Usage: config_libvirt_qemu
+config_libvirt_qemu()
+{
+    # Configure libvirt-daemon-driver-qemu
+    local t="$install_root/etc/libvirt/qemu.conf"
+    if [ -f "$t" ]; then
+        local r='s/^#\?\($n\s*=\s*\)\"\w*\"\(\s*\)/\1\"$v\"\3/'
+        local r1
+        local n='\(user\|group\)'
+        local v="$libvirt_qemu_user"
+
+        if [ -n "$v" ] ; then
+            eval "r1=\"$r\""
+
+            sed -i "$t" \
+                ${r1:+-e "$r1"} \
+                #
+        fi
+    fi
+}
+
+# Usage: config_libvirt
+config_libvirt()
+{
+    # Configure libvirt-daemon
+    local t="$install_root/etc/libvirt/libvirtd.conf"
+    if [ -f "$t" ]; then
+        local r='s/^#\?\($n\s*=\s*\)\"\w*\"\(\s*\)/\1\"$v\"\2/'
+        local r1 r2 r3 r4 r5
+        local n v i=0
+
+        local var_libvirt_unix_group='unix_sock_group'
+        local var_libvirt_unix_ro_perms='unix_sock_ro_perms'
+        local var_libvirt_unix_rw_perms='unix_sock_rw_perms'
+        local var_libvirt_unix_auth_ro='auth_unix_ro'
+        local var_libvirt_unix_auth_rw='auth_unix_rw'
+
+        for n in \
+            'libvirt_unix_group' \
+            'libvirt_unix_ro_perms' \
+            'libvirt_unix_rw_perms' \
+            'libvirt_unix_auth_ro' \
+            'libvirt_unix_auth_rw' \
+            #
+        do
+            eval "
+                if v=\"\$$n\" && [ -n \"\$v\" ]; then
+                    n=\"\$var_${n}\"
+                    v=\"$r\"
+                else
+                    v=''
+                fi
+                r$((++i))=\"\$v\"
+            "
+        done
+
+        if [ -n "$r1$r2$r3$r4" ]; then
+            sed -i "$t" \
+                ${r1:+-e "$r1"} \
+                ${r2:+-e "$r2"} \
+                ${r3:+-e "$r3"} \
+                ${r4:+-e "$r4"} \
+                ${r5:+-e "$r5"} \
+                #
+        fi
+    fi
+}
+
+# Usage: config_readonly_root
+config_readonly_root()
+{
+    local t
+
+    # Make postfix readonly root aware
+    if pkg_is_installed postfix; then
+        t="$install_root/etc/rwtab.d/postfix"
+        [ -s "$t" ] || {
+            echo 'dirs /var/lib/postfix'
+        } >"$t"
+    fi
+
+    # Make rsyslog readonly root aware
+    if pkg_is_installed rsyslog; then
+        t="$install_root/etc/rwtab.d/rsyslog"
+        [ -s "$t" ] || {
+            echo 'dirs /var/lib/rsyslog'
+        } >"$t"
+    fi
+
+    # Make gssproxy readonly root aware
+    if pkg_is_installed gssproxy; then
+        t="$install_root/etc/rwtab.d/gssproxy"
+        [ -s "$t" ] || {
+            echo 'dirs /var/lib/gssproxy'
+        } >"$t"
+    fi
+
+    # Make /etc writable to update config files (mainly /etc/passwd)
+    t="$install_root/etc/rwtab.d/_etc"
+    [ -s "$t" ] || {
+        echo 'files /etc'
+        # required by systemd-journal-catalog-update.service
+        # started when /etc is writable
+        echo 'empty /var/lib/systemd/catalog'
+    } >"$t"
+
+    # Fix systemd-tmpfiles-setup.service on CentOS/RHEL 7;
+    # see https://bugzilla.redhat.com/show_bug.cgi?id=1207083
+    if centos_version_eq $releasemaj 7; then
+        # /usr/lib/tmpfiles.d/legacy.conf: /var/lock -> ../run/lock
+        ln -sf '../run/lock' "$install_root/var/lock"
+
+        t="$install_root/usr/lib/tmpfiles.d/legacy.conf"
+        if [ -s "$t" ]; then
+            sed -e 's,^\(L\s\+/var/lock\),#\1,' "$t" \
+                >"$install_root/etc/tmpfiles.d/${t##*/}"
+        fi
+
+        # /usr/lib/tmpfiles.d/rpm.conf: rm -f /var/lib/rpm/__db.*
+        rm -f "$install_root/var/lib/rpm"/__db.*
+
+        t="$install_root/usr/lib/tmpfiles.d/rpm.conf"
+        if [ -s "$t" ]; then
+            sed -e 's,^\(r\s\+/var/lib/rpm/__db\.\*\),#\1,' "$t" \
+                >"$install_root/etc/tmpfiles.d/${t##*/}"
+        fi
+    fi
+}
+
 ## Parse options
 
 # Distribution to install/setup
@@ -1565,155 +1804,16 @@ _EOF
             unset serial
         fi # [ -n "${pkg_grub2-}" -a -n "$serial_console" ]
 
-        # Update /etc/issue, /etc/issue.net and /etc/motd banners
+        # Configure login banners
         if [ -n "$login_banners" ]; then
-            $(
-                # Source in subshell to not pollute environment
-                t="$install_root/etc/os-release"
-                [ -f "$t" ] && . "$t" >/dev/null 2>&1 || PRETTY_NAME=
-
-                [ -n "$PRETTY_NAME" ] || PRETTY_NAME="$(uname -s)"
-
-                # /etc/issue
-                banner="$install_root/etc/issue"
-                if [ -f "$banner" ]; then
-                    cat >"$banner" <<_EOF
-$PRETTY_NAME
-
-  Hostname : \n
-  TTY      : \l${nfs_root:+
-  IPv4     : \4
-  IPv6     : \6}
-
-_EOF
-                fi
-
-                # /etc/issue.net
-                banner="$install_root/etc/issue.net"
-                if [ -f "$banner" ]; then
-                    cat >"$banner" <<'_EOF'
-_EOF
-                fi
-
-                # /etc/motd
-                banner="$install_root/etc/motd"
-                if [ -f "$banner" ]; then
-                    cat >"$banner" <<'_EOF'
-_EOF
-                fi
-            )
-        fi # [ -n "$login_banners" ]
-
-        # Disable lvmetad on CentOS/RHEL 7- to conform to 8+
-        if centos_version_le $releasemaj 7; then
-            t="$install_root/etc/lvm/lvm.conf"
-            if [ -f "$t" ]; then
-                sed -i "$t" \
-                    -e '/^\s*use_lvmetad\s*=\s*[0-9]\+\s*$/s/[0-9]/0/' \
-                    #
-                in_chroot "$install_root" \
-                    'systemctl mask lvm2-lvmetad.service lvm2-lvmetad.socket'
-                in_chroot "$install_root" \
-                    'systemctl stop lvm2-lvmetad.service lvm2-lvmetad.socket'
-            fi
-        fi
-
-        if [ -n "${grp_virt_host-}" ]; then
-            if [ -n "${pkg_qemu_kvm-}" ]; then
-                # Enable/disable KVM nested virtualization
-                t="$install_root/etc/modprobe.d/kvm.conf"
-                if [ -f "$t" ]; then
-                    local r='s/^#\?\($n\)=[0-9]\+\(.*\)/\1=$v\4/'
-                    local r1
-                    local n='options\s\+\(kvm_\(intel\|amd\)\)\s\+nested'
-                    local v="$kvm_nested"
-
-                    if [ -n "$v" ] ; then
-                        [ "$v" -eq 1 ] 2>/dev/null || v=0
-
-                        eval "r1=\"$r\""
-
-                        sed -i "$t" \
-                            ${r1:+-e "$r1"} \
-                            #
-                    fi
-                fi
-            fi
-
-            if [ -n "${pkg_libvirt-}" ]; then
-                # Configure libvirt-daemon-driver-qemu
-                t="$install_root/etc/libvirt/qemu.conf"
-                if [ -f "$t" ]; then
-                    local r='s/^#\?\($n\s*=\s*\)\"\w*\"\(\s*\)/\1\"$v\"\3/'
-                    local r1
-                    local n='\(user\|group\)'
-                    local v="$libvirt_qemu_user"
-
-                    if [ -n "$v" ] ; then
-                        eval "r1=\"$r\""
-
-                        sed -i "$t" \
-                            ${r1:+-e "$r1"} \
-                            #
-                    fi
-                fi
-
-                # Configure libvirt-daemon
-                t="$install_root/etc/libvirt/libvirtd.conf"
-                if [ -f "$t" ]; then
-                    local r='s/^#\?\($n\s*=\s*\)\"\w*\"\(\s*\)/\1\"$v\"\2/'
-                    local r1 r2 r3 r4 r5
-                    local n v i=0
-
-                    local var_libvirt_unix_group='unix_sock_group'
-                    local var_libvirt_unix_ro_perms='unix_sock_ro_perms'
-                    local var_libvirt_unix_rw_perms='unix_sock_rw_perms'
-                    local var_libvirt_unix_auth_ro='auth_unix_ro'
-                    local var_libvirt_unix_auth_rw='auth_unix_rw'
-
-                    for n in \
-                        'libvirt_unix_group' \
-                        'libvirt_unix_ro_perms' \
-                        'libvirt_unix_rw_perms' \
-                        'libvirt_unix_auth_ro' \
-                        'libvirt_unix_auth_rw' \
-                        #
-                    do
-                        eval "
-                            if v=\"\$$n\" && [ -n \"\$v\" ]; then
-                                n=\"\$var_${n}\"
-                                v=\"$r\"
-                            else
-                                v=''
-                            fi
-                            r$((++i))=\"\$v\"
-                        "
-                    done
-
-                    if [ -n "$r1$r2$r3$r4" ]; then
-                        sed -i "$t" \
-                            ${r1:+-e "$r1"} \
-                            ${r2:+-e "$r2"} \
-                            ${r3:+-e "$r3"} \
-                            ${r4:+-e "$r4"} \
-                            ${r5:+-e "$r5"} \
-                            #
-                    fi
-                fi
-            fi
+            config_login_banners
         fi
 
         # Configure nameserver(s) in resolv.conf
-        t="$install_root/etc/resolv.conf"
-        if [ -n "${nameservers}${install_root%/}" ]; then
-            : >"$t"
-        fi
-        if [ -n "${nameservers}" ]; then
-            local n
-            for n in ${nameservers}; do
-                echo "nameserver $n" >>"$t"
-            done
-        fi
+        config_resolv_conf
+
+        # Configure lvm2
+        config_lvm2
 
         # Enable tmp.mount with up to $tmp_mount percents of system RAM
         if [ -n "$tmp_mount" ]; then
@@ -1726,6 +1826,12 @@ _EOF
                     >"$install_root/etc/systemd/system/${t##*/}"
                 in_chroot "$install_root" 'systemctl enable tmp.mount'
             fi
+        fi
+
+        if [ -n "${grp_virt_host-}" ]; then
+            config_kvm
+            config_libvirt_qemu
+            config_libvirt
         fi
 
         # Enable iptables and ip6tables if given
@@ -1762,60 +1868,7 @@ _EOF
         in_chroot "$install_root" 'systemctl enable postfix.service'
 
         if [ -n "$readonly_root" ]; then
-            # Make postfix readonly root aware
-            if pkg_is_installed postfix; then
-                t="$install_root/etc/rwtab.d/postfix"
-                [ -s "$t" ] || {
-                    echo 'dirs /var/lib/postfix'
-                } >"$t"
-            fi
-
-            # Make rsyslog readonly root aware
-            if pkg_is_installed rsyslog; then
-                t="$install_root/etc/rwtab.d/rsyslog"
-                [ -s "$t" ] || {
-                    echo 'dirs /var/lib/rsyslog'
-                } >"$t"
-            fi
-
-            # Make gssproxy readonly root aware
-            if pkg_is_installed gssproxy; then
-                t="$install_root/etc/rwtab.d/gssproxy"
-                [ -s "$t" ] || {
-                    echo 'dirs /var/lib/gssproxy'
-                } >"$t"
-            fi
-
-            # Make /etc writable to update config files (mainly /etc/passwd)
-            t="$install_root/etc/rwtab.d/_etc"
-            [ -s "$t" ] || {
-                echo 'files /etc'
-                # required by systemd-journal-catalog-update.service
-                # started when /etc is writable
-                echo 'empty /var/lib/systemd/catalog'
-            } >"$t"
-
-            # Fix systemd-tmpfiles-setup.service on CentOS/RHEL 7;
-            # see https://bugzilla.redhat.com/show_bug.cgi?id=1207083
-            if centos_version_eq $releasemaj 7; then
-                # /usr/lib/tmpfiles.d/legacy.conf: /var/lock -> ../run/lock
-                ln -sf '../run/lock' "$install_root/var/lock"
-
-                t="$install_root/usr/lib/tmpfiles.d/legacy.conf"
-                if [ -s "$t" ]; then
-                    sed -e 's,^\(L\s\+/var/lock\),#\1,' "$t" \
-                        >"$install_root/etc/tmpfiles.d/${t##*/}"
-                fi
-
-                # /usr/lib/tmpfiles.d/rpm.conf: rm -f /var/lib/rpm/__db.*
-                rm -f "$install_root/var/lib/rpm"/__db.*
-
-                t="$install_root/usr/lib/tmpfiles.d/rpm.conf"
-                if [ -s "$t" ]; then
-                    sed -e 's,^\(r\s\+/var/lib/rpm/__db\.\*\),#\1,' "$t" \
-                        >"$install_root/etc/tmpfiles.d/${t##*/}"
-                fi
-            fi
+            config_readonly_root
         fi
 
         # Usage: ssh_agent_start4bashrc() [<user1>|<file1>] [<user2>|<file1>] ...
