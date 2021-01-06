@@ -2205,6 +2205,7 @@ distro_centos()
     distro_post_core_hook()
     {
         local releasemin
+        local yum_update=''
 
         # Determine actually installed version (e.g. 8 -> 8.3)
         releasever="$(
@@ -2261,7 +2262,7 @@ distro_centos()
                     -e '/^baseurl=/!b' \
                     -e "s,/$releasever/,/$releasever_orig/,g" \
                 {} \+
-                in_chroot "$install_root" 'yum -y update'
+                yum_update=1
             fi
         fi
 
@@ -2459,6 +2460,14 @@ distro_centos()
                 "$install_root" \
                 "rpm --import '/dev/stdin' && rpm -i '$RPMFUSION_RELEASE_URL'" \
             && has_enable 'repo' || repo_rpmfusion=''
+        fi
+
+        # Repositories might provide updated package versions
+        [ -z "$has_repo" ] || yum_update=1
+
+        # Perform package update when requested
+        if [ -n "$yum_update" ]; then
+            in_chroot "$install_root" 'yum -y update'
         fi
     }
 
