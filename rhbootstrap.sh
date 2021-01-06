@@ -2338,7 +2338,7 @@ distro_centos()
         releasever="$(
             sed -n \
                 -e '1 s/^CentOS\s\+.\+\s\+\([0-9]\+\.[0-9]\+\).*$/\1/p' \
-                '/etc/centos-release' \
+                "$install_root/etc/redhat-release" \
                 #
         )"
         releasemaj="${releasever%.*}"
