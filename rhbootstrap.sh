@@ -4481,7 +4481,7 @@ esac
 exit_handler()
 {
     local rc=$?
-    local t
+    local t f
     local systemctl_helper="$install_root/bin/systemctl"
 
     # Do not interrupt exit handler
@@ -4860,6 +4860,15 @@ _EOF
             '
         fi
 
+        # Restore /etc/yum.conf.rhbootstrap after yum(1) from EPEL install
+        f="$install_root/etc/yum.conf"
+        t="$f.rhbootstrap"
+        if [ ! -e "$f" -a -e "$t" ]; then
+            mv -f "$t" "$f" ||:
+        else
+            rm -f "$t" ||:
+        fi
+
         if [ -n "$nodocs" ]; then
             # Directories not excluded from install. They are empty.
             find "$install_root/usr/share/doc" -type d -a -empty -a -delete
@@ -5200,7 +5209,7 @@ distro_centos()
                 if [ $releasemaj -eq 4 -a $releasemin -le 3 ]; then
                     # Backup /etc/yum.conf since yum(1) from EPEL doesn't have it
                     local t="$install_root/etc/yum.conf"
-                    ln -nf "$t" "$t.rpmorig" ||:
+                    ln -nf "$t" "$t.rhbootstrap" ||:
                 fi
 
                 has_epel=1
