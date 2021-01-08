@@ -5632,7 +5632,7 @@ distro_fedora()
         local base updates
 
         base="$(
-            arch="Everything/$arch/os"
+            arch="Everything/$basearch/os"
 
             printf -- "$templ" \
                 "$host" "$subdir" 'releases' "$releasever" "$arch"
@@ -5642,7 +5642,8 @@ distro_fedora()
         echo "baseurl='$base'" || return
 
         updates="$(
-            [ $releasever -le 27 ] || arch="Everything/$arch"
+            [ $releasever -le 27 ] &&
+                arch="$basearch" || arch="Everything/$basearch"
 
             printf -- "$templ" \
                 "$host" "$subdir" 'updates'  "$releasever" "$arch"
