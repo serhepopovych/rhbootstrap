@@ -1,0 +1,73 @@
+--- a/p2v-f30-amd64.no-ssh-key.ks	2020-12-25 20:57:55.586894098 +0000
++++ b/p2v-f30-amd64.no-ssh-key.ks	2020-12-25 20:53:22.584371657 +0000
+@@ -30,7 +30,7 @@
+ # to tell Anaconda we're using eth0, *and* we have to pass
+ # net.ifnames=0 on the kernel command line.
+ network --bootproto=dhcp --device=eth0
+-bootloader --location=mbr --append="console=tty0 console=ttyS0,115200 rd_NO_PLYMOUTH net.ifnames=0"
++bootloader --location=mbr --append="console=tty0 console=ttyS0,115200 rd.plymouth=0 net.ifnames=0"
+ 
+ zerombr
+ clearpart --all --initlabel
+@@ -40,7 +40,8 @@
+ 
+ # Repository lines:
+ 
+-repo --name=fedora --mirrorlist=http://mirrors.fedoraproject.org/mirrorlist?repo=fedora-$releasever&arch=$basearch 
++repo --name=fedora  --mirrorlist=https://mirrors.fedoraproject.org/metalink?repo=fedora-$releasever&arch=$basearch
++repo --name=updates --mirrorlist=https://mirrors.fedoraproject.org/metalink?repo=updates-released-f$releasever&arch=$basearch
+ 
+ 
+ # Packages to install in the ISO.  For dependencies, see
+@@ -72,6 +73,16 @@
+ # Work around https://bugzilla.redhat.com/show_bug.cgi?id=1182362
+ tar
+ 
++# Network File System (NFS) support
++rpcbind
++nfs-utils
++
++# Support squashfs.img download via network (e.g. HTTP)
++dracut-network
++
++# Generic initramfs
++dracut-config-generic
++
+ # https://bugzilla.redhat.com/show_bug.cgi?id=1168223
+ dracut-live
+ 
+@@ -111,10 +122,13 @@
+ hwdata
+ hdparm
+ smartmontools
++biosdevname
+ 
+ # Extra packages requested by the user via the virt-p2v-make-kickstart
+ # --install option (if any).
+-
++tcpdump
++mtr
++mc
+ 
+ %end
+ 
+@@ -1437,6 +1450,19 @@
+ # Disable ssh service (RHBZ#1248678)
+ systemctl disable sshd.service
+ 
++# Regenerate initramfs with additional modules
++
++# nfs
++echo 'add_dracutmodules+=" nfs "' \
++    >'/etc/dracut.conf.d/01-nfs.conf'
++# livenet
++echo 'add_dracutmodules+=" livenet "' \
++    >'/etc/dracut.conf.d/02-livenet.conf'
++
++kver="$(rpm -q kernel --qf '%{version}-%{release}.%{arch}\n' | head -1)"
++initrd="/boot/initramfs-$kver.img"
++dracut -v -f "$initrd" "$kver" && ln -f "$initrd" '/initrd0.img'
++
+ %end
+ 
+ %post --nochroot

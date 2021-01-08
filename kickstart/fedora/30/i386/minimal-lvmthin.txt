@@ -1,13 +1,13 @@
-#version=RHEL8
+#version=DEVEL
 
 # Use graphical or text install?
 text
 ## Use NFS as installation source
-#nfs --server=203.0.113.1 --dir=/srv/nfs/linux/centos/8/amd64/iso-root
+#nfs --server=203.0.113.1 --dir=/srv/nfs/linux/fedora/30/i386/iso-root
 # Use HTTP mirrors as installation source
-url --mirrorlist=http://mirrorlist.centos.org/?release=8&arch=x86_64&repo=BaseOS
+url --mirrorlist=https://mirrors.fedoraproject.org/metalink?repo=fedora-30&arch=i386
 # Add repos during install
-repo --name=AppStream --mirrorlist=http://mirrorlist.centos.org/?release=8&arch=x86_64&repo=AppStream
+repo --name=updates --mirrorlist=https://mirrors.fedoraproject.org/metalink?repo=updates-released-f30&arch=i386
 
 # Accept EULA
 eula --accepted
@@ -50,9 +50,9 @@ services --enabled=chronyd,ipset,iptables,ip6tables
 -wpa_supplicant
 #-teamd
 #-tuned
-#-firewalld
+-firewalld
 -plymouth*
-#-parted
+-parted
 -iprutils
 #-kexec-tools
 #-xfsprogs
@@ -130,23 +130,30 @@ clearpart --drives=$device_name --all --disklabel=gpt
 part biosboot   --fstype="biosboot" --ondisk=$device_name --size=1
 part /boot      --fstype="ext2"     --ondisk=$device_name --size=512  --label=BOOT
 part /boot/efi  --fstype="efi"      --ondisk=$device_name --size=256  --label=ESP
-part pv.1742                        --ondisk=$device_name --size=56320 --grow $pv_opts
+part pv.1742                        --ondisk=$device_name --size=29696 --grow $pv_opts
 
 # Logical Volume Management (LVM)
 volgroup cl pv.1742 --reserved-percent=20
 
-logvol none  --vgname=cl --name=pool0 --thinpool --size=43008 --grow
+logvol none  --vgname=cl --name=pool0 --thinpool --size=10240 --grow
 
-logvol swap           --vgname=cl --name=swap          --thin --poolname=pool0 --fstype=swap --recommended --label=SWAP
-logvol /              --vgname=cl --name=root          --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=6144  --label=ROOT --maxsize=10240 --grow
-logvol /var           --vgname=cl --name=var           --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=15360 --label=VAR
-logvol /var/crash     --vgname=cl --name=var_crash     --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=10240 --label=VAR_CRASH
-logvol /var/log       --vgname=cl --name=var_log       --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=8192  --label=VAR_LOG
-logvol /var/log/audit --vgname=cl --name=var_log_audit --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=2048  --label=VAR_LOG_AUDIT
-logvol /home          --vgname=cl --name=home          --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=1024  --label=HOME
+logvol swap  --vgname=cl --name=swap  --thin --poolname=pool0 --fstype=swap --recommended --label=SWAP
+logvol /     --vgname=cl --name=root  --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=5120 --label=ROOT --maxsize=10240 --grow
+logvol /var  --vgname=cl --name=var   --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=3072 --label=VAR
+logvol /home --vgname=cl --name=home  --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=1024 --label=HOME
 
 # System bootloader configuration
 bootloader --append=" crashkernel=auto zswap.enabled=1 nosmt" --location=mbr --boot-drive=$device_name
 EOF
+
+# https://bugzilla.redhat.com/show_bug.cgi?id=1264571
+p="$(python3 -c 'import pyanaconda as _; print(_.__file__);')"
+p="${p%/*}/modules/storage/partitioning"
+
+rm -f "$p/__pycache__/custom_partitioning.*"
+
+sed -i "$p/custom_partitioning.py" \
+    -e 's/if pesize not in possible_extents:/if False:/' \
+        #
 
 %end

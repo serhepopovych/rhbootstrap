@@ -1,0 +1,29 @@
+This kickstart file is based on one created by
+virt-p2v-maker-kickstart(1) command from virt-p2v-maker package on
+Fedora 30 amd64 (i386) system. See it's manual page for more
+information on requirements and how to build livecd image using provided
+kickstart file(s).
+
+Modifications added to original p2v.ks intended to bring support for
+livenet (network/PXE) boot sharing squashfs image over NFS. That's
+method much faster and doesn't have memory overhead compated to one
+described in virt-p2v-maker-kickstart(1) that downloads image over TFTP.
+
+Note that i386 and amd64 (x86_64) kickstart files differ in repo URLs and
+binary format of virt-v2v(1) utility embedded to them.
+
+Usually you want to generate RSA keypair with ssh-keygen(1) for ssh
+public key authentication with conversion server and add base64(1)
+encoded contents of unencrypted ~/.ssh/id_rsa private key to kickstart
+file. This can be accomplished with below commands:
+
+  (some host)$ ssh-keygen -f id_rsa.p2v -P ''
+
+  (some host)$ ssh-copy-id -i id_rsa.p2v virt-p2v@<conversion-server>
+
+  (some host)$ base64 id_rsa.p2v | ssh <user>@<p2v-maker-host> \
+               "sed -i p2v.ks -e '/^base64 .\+ \/var\/tmp\/id_rsa/r /dev/stdin'"
+
+Most likely you also want to remove id_rsa.p2v after above steps to
+keep copy(ies) at predictable location(s) (i.e. p2v-maker host, netboot
+server).

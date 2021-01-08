@@ -3,7 +3,7 @@
 # Use graphical or text install?
 text
 ## Use NFS as installation source
-#nfs --server=203.0.113.1 --dir=/srv/nfs/linux/redhat/centos/8.2/amd64/iso-root
+#nfs --server=203.0.113.1 --dir=/srv/nfs/linux/centos/8/amd64/iso-root
 # Use HTTP mirrors as installation source
 url --mirrorlist=http://mirrorlist.centos.org/?release=8&arch=x86_64&repo=BaseOS
 # Add repos during install
