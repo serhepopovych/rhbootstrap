@@ -1,0 +1,10 @@
+#!/bin/sh
+
+export LANG=C
+
+KERNEL_VERSION="${1:?missing KERNEL_VERSION}"
+KERNEL_IMAGE="${2:?missing KERNEL_IMAGE}"
+
+INITRD_IMAGE="${KERNEL_IMAGE%/*}/initramfs-${KERNEL_VERSION}.img"
+
+chmod 0644 "$INITRD_IMAGE"

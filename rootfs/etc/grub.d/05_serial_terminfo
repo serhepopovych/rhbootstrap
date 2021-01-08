@@ -1,0 +1,25 @@
+#!/bin/sh
+
+set -e
+
+serial='s,^GRUB_SERIAL_COMMAND=.*\(\(--unit=\|efi\)[0-9]\+\).*,\1,p'
+serial="$(sed -n -e "$serial" '/etc/default/grub')"
+
+if [ -n "$serial" ]; then
+    t="$serial"
+
+    serial="${serial#--unit=}"
+    serial="${serial#efi}"
+
+    if [ -z "${t##efi*}" ]; then
+        cat <<EOF
+terminfo serial_efi$serial vt100-color -u
+terminfo serial_com$serial vt100-color -u
+EOF
+    else
+        cat <<EOF
+terminfo serial      vt100-color -u
+terminfo serial_com$serial vt100-color -u
+EOF
+    fi
+fi

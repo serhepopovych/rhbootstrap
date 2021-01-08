@@ -1,0 +1,61 @@
+
+# Start ssh-agent for non-X11 session unless ...
+if [ -z "${DISPLAY-}" ]; then
+    ssh_agent=''
+    # Note that is is up to user to ensure that ~/.ssh isn't world writeable.
+    ssh_agent_env=~/.ssh/ssh-agent.env
+
+    while :; do
+        # Socket by agent or sshd forwarded connection.
+        # In latter case SSH_AGENT_PID isn't available.
+        if [ -S "${SSH_AUTH_SOCK-}" ]; then
+            break
+        fi
+        # Cleanup if not running or running but no socket.
+        if [ -n "${ssh_agent##*/*}" ]; then
+            unset SSH_AUTH_SOCK SSH_AGENT_PID
+            break
+        fi
+        # Source environment.
+        if [ -r "$ssh_agent_env" ]; then
+            eval $(
+                . "$ssh_agent_env" >/dev/null
+
+                [ -z "${SSH_AGENT_PID-}" ] ||
+                [ -z "${SSH_AGENT_PID##*\'*}" ] ||
+                    echo "export SSH_AGENT_PID='$SSH_AGENT_PID'"
+
+                [ -z "${SSH_AUTH_SOCK-}" ] ||
+                [ -z "${SSH_AUTH_SOCK##*\'*}" ] ||
+                    echo "export SSH_AUTH_SOCK='$SSH_AUTH_SOCK'"
+            )
+        fi
+
+        if [ -n "${SSH_AGENT_PID-}" ] &&
+           kill -0 "$SSH_AGENT_PID" 2>/dev/null
+        then
+            # ... already running
+            ssh_agent='running'
+        else
+            # ... first attempt to start failed.
+            [ -z "$ssh_agent" ] &&
+            # ... disabled (e.g. with ln -sf /dev/null ~/.ssh/ssh-agent.env).
+            [ ! -e "$ssh_agent_env" -o -s "$ssh_agent_env" ] &&
+            # ... it exists and started successfuly.
+            ssh_agent="$(command -v ssh-agent)" &&
+                [ -x "$ssh_agent" ] &&
+                mkdir -p "${ssh_agent_env%/*}" &&
+                rm -f "$ssh_agent_env" &&
+                (
+                    # Make sure agent settings readable only by user
+                    umask 0077 && "$ssh_agent" -s >"$ssh_agent_env"
+                ) ||
+            ssh_agent='not running'
+
+            # Make sure we source environment.
+            unset SSH_AUTH_SOCK
+        fi
+    done
+
+    unset ssh_agent ssh_agent_env
+fi

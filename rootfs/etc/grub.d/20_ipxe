@@ -1,0 +1,39 @@
+#!/bin/sh
+
+set -e
+
+. /usr/share/grub/grub-mkconfig_lib
+
+# iPXE is only supported on x86
+case $(uname -m) in
+	i?86|x86_64) ;;
+	*) exit 0 ;;
+esac
+
+prepare_boot_cache="$(prepare_grub_to_access_device ${GRUB_DEVICE_BOOT} | sed -e "s/^/\t/")"
+
+if [ -d /sys/firmware/efi ]; then
+  IPXE=/boot/ipxe.efi
+else
+  IPXE=/boot/ipxe.lkrn
+fi
+
+if test -e "$IPXE" ; then
+  IPXEPATH=$( make_system_path_relative_to_its_root "$IPXE" )
+  echo "Found iPXE image: $IPXE" >&2
+  if [ -d /sys/firmware/efi ]; then
+    cat <<EOF
+menuentry "Network boot (iPXE)" --users "" --class network {
+${prepare_boot_cache}
+	chainloader $IPXEPATH
+}
+EOF
+  else
+    cat <<EOF
+menuentry "Network boot (iPXE)" --users "" --class network {
+${prepare_boot_cache}
+	linux16 $IPXEPATH
+}
+EOF
+  fi
+fi

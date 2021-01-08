@@ -1,0 +1,30 @@
+#!/bin/sh
+
+prog_name="${0##*/}"
+
+t="${prog_name%.install}"
+[ "$t" != "$prog_name" ] || exit 0
+t="$t.sh"
+
+COMMAND="$1"
+KERNEL_VERSION="$2"
+BOOT_DIR_ABS="$3"
+KERNEL_IMAGE="$4"
+
+[ -d "$BOOT_DIR_ABS" ] || BOOT_DIR_ABS='/boot'
+
+KERNEL_IMAGE="$BOOT_DIR_ABS/vmlinuz-$KERNEL_VERSION"
+
+case "$1" in
+    add)
+        t="/etc/kernel/postinst.d/$t"
+        ;;
+    remove)
+        t="/etc/kernel/postrm.d/$t"
+        ;;
+    *)
+        exit 0
+        ;;
+esac
+
+[ ! -x "$t" ] || exec "$t" "$KERNEL_VERSION" "$KERNEL_IMAGE"
