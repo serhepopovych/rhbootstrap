@@ -4961,6 +4961,7 @@ if [ -n "$install_root" ]; then
 else
     install_root='/'
 fi
+cd "$install_root"
 
 ## Install core components
 
