@@ -4651,17 +4651,16 @@ exit_handler()
 {
     local rc=$?
     local t f
-    local systemctl_helper="$install_root/bin/systemctl"
 
     # Do not interrupt exit handler
     set +e
 
     if [ $rc -eq 0 ]; then
         ## Add helpers
+        local systemctl_helper="$install_root/bin/systemctl"
 
-        t='type systemctl >/dev/null 2>&1'
-        if [ -e "$systemctl_helper" ] ||
-           $(in_chroot_exec "$install_root" "$t"); then
+        t='command -v systemctl >/dev/null 2>&1'
+        if [ -e "$systemctl_helper" ] || in_chroot "$install_root" "$t"; then
             systemctl_helper=''
         else
             install -d "${systemctl_helper%/*}" ||:
@@ -5043,6 +5042,11 @@ _EOF
             rm -f "$t" ||:
         fi
 
+        # Remove installed systemctl helper
+        if [ -n "$systemctl_helper" ]; then
+            rm -f "$systemctl_helper" ||:
+        fi
+
         if [ -n "$nodocs" ]; then
             # Directories not excluded from install. They are empty.
             find "$install_root/usr/share/doc" -type d -a -empty -a -delete
@@ -5081,10 +5085,6 @@ _EOF
             return $rc
         }
         clean_dir "$install_root/var/log"
-    fi
-
-    if [ -n "$systemctl_helper" ]; then
-        rm -f "$systemctl_helper" ||:
     fi
 
     if [ -n "${install_root%/}" ]; then
