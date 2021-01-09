@@ -25,7 +25,7 @@
 # Requires: mountpoint(1), chroot(1), find(1), xargs(1), install(1), dd(1),
 #           sed(1), mv(1), rm(1), ln(1), cat(1), rpm(1), yum(1), curl(1), id(1),
 #           uname(1), mount(8), umount(8), setarch(8), chmod(1), mktemp(1),
-#           base64(1)
+#           base64(1), tr(1)
 
 # Set option(s)
 set -e
@@ -458,6 +458,29 @@ fedora_version_ge()
 }
 
 fedora_version_neq() { ! fedora_version_eq "$@" || return; }
+
+# Usage: distro_name [<root>]
+distro_name()
+{
+    local root="${1-}"
+
+    sed -n \
+        -e '1 s/^\(Fedora\|CentOS\)\s\+.*$/\1/p' \
+        "$root/etc/redhat-release" | \
+    tr '[:upper:]' '[:lower:]'
+}
+
+# Usage: distro_version [<root>]
+distro_version()
+{
+    local root="${1-}"
+
+    sed -n \
+        -e '1 s/^CentOS\s\+.\+\s\+\([0-9]\+\.[0-9]\+\).*$/\1/p' \
+        -e '1 s/^Fedora\s\+.\+\s\+\([0-9]\+\).*$/\1/p' \
+        "$root/etc/redhat-release" \
+        #
+}
 
 ## Post install configuration snippets
 
@@ -3872,11 +3895,11 @@ autopass.tgz.b64
 ## Parse options
 
 # Distribution to install/setup
-distro='centos'
+distro="$(distro_name)"
+# Fedora/CentOS release version
+releasever="$(distro_version)"
 # System processor (CPU) architecture (default: running system)
 arch="$(uname -m)"
-# CentOS release version (default: 8)
-releasever=8
 
 # rpm(8) install options (default: all)
 install_langs=''
@@ -3972,11 +3995,11 @@ Options and their defaults:
     --distro=$distro
         Distribution to install to chroot or setup.
         Only centos and fedora supported at the moment.
+    --releasever=$releasever
+        Supported distribution release version
     --arch=$arch
         System processor (CPU) architecture to install packages for.
-        Only AMD64 (x86_64) and i386 supported at the moment
-    --releasever=$releasever
-        Supported CentOS release version
+        Only AMD64 (x86_64) and i386 (i686) supported at the moment
 
     --install-langs=${install_langs:-<all>}
         (rpm) install localization files for given languages (e.g. 'en:ru:uk')
@@ -4116,17 +4139,6 @@ while [ $# -gt 0 ]; do
             [ -n "$distro" ] || exit
             arg="--distro='$distro'"
             ;;
-        --arch)
-            [ -n "${2-}" ] || exit
-            arch="$2"
-            arg="--arch '$arch'"
-            shift
-            ;;
-        --arch=*)
-            arch="${1##--arch=}"
-            [ -n "$arch" ] || exit
-            arg="--arch='$arch'"
-            ;;
         --releasever)
             [ -n "${2-}" ] || exit
             releasever="$2"
@@ -4137,6 +4149,17 @@ while [ $# -gt 0 ]; do
             releasever="${1##--releasever=}"
             [ -n "$releasever" ] || exit
             arg="--releasever='$releasever'"
+            ;;
+        --arch)
+            [ -n "${2-}" ] || exit
+            arch="$2"
+            arg="--arch '$arch'"
+            shift
+            ;;
+        --arch=*)
+            arch="${1##--arch=}"
+            [ -n "$arch" ] || exit
+            arg="--arch='$arch'"
             ;;
 
         --install-langs)
@@ -5181,10 +5204,7 @@ distro_centos()
 
         # Determine actually installed version (e.g. 8 -> 8.3)
         releasever="$(
-            sed -n \
-                -e '1 s/^CentOS\s\+.\+\s\+\([0-9]\+\.[0-9]\+\).*$/\1/p' \
-                "$install_root/etc/redhat-release" \
-                #
+            distro_version "$install_root"
         )"
         releasemaj="${releasever%.*}"
         releasemin="${releasever#*.}"
