@@ -4460,21 +4460,21 @@ trap - EXIT
 
 # $distro
 case "$distro" in
-    centos) ;;
-    fedora) ;;
+    'centos') ;;
+    'fedora') ;;
     *)      fatal 'Unsupported distribution "%s"\n' "$distro" ;;
 esac
 
 # $arch, $basearch
 case "$arch" in
-    x86_64) basearch='x86_64' ;;
+    'x86_64') basearch='x86_64' ;;
     i?86)   basearch='i386'   ;;
     *)      fatal 'Unsupported architecture "%s"\n' "$arch" ;;
 esac
 
 # $selinux
 case "$selinux" in
-    enforcing|permissive|disabled|'') ;;
+    'enforcing'|'permissive'|'disabled'|'') ;;
     *) fatal 'Unknown SELinux mode "%s"\n' "$selinux" ;;
 esac
 
