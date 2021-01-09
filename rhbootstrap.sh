@@ -5763,11 +5763,9 @@ yum -y \
     ${baseurl:+
         --disablerepo='*'
         --enablerepo="$baserepo"
-        --setopt="$baserepo.mirrorlist=file:///dev/null"
         --setopt="$baserepo.baseurl=$baseurl"
         ${updatesurl:+
             --enablerepo="$updatesrepo"
-            --setopt="$updatesrepo.mirrorlist=file:///dev/null"
             --setopt="$updatesrepo.baseurl=$updatesurl"
          }
      } \
