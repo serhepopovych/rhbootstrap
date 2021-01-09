@@ -5880,58 +5880,108 @@ fi
 
 ## Release specific tricks
 
-if centos_version_gt $releasemaj 7; then
-    # Disable packages that not available in repositories for CentOS/RHEL 8+
-    pkg_iucode_tool=
+pkg_remmina_plugins_secret=1
+pkg_wireshark_gnome=1
 
-    pkg_lynx=
-    pkg_elinks=
-    pkg_links=
+  if is_centos; then
+    if centos_version_gt $releasemaj 7; then
+        # Disable packages that not available in repositories for CentOS/RHEL 8+
+        pkg_iucode_tool=
 
-    pkg_btrfs_progs=
-    pkg_whois=
-    pkg_ntpdate=
+        pkg_lynx=
+        pkg_elinks=
+        pkg_links=
 
-    pkg_cups_x2go=
+        pkg_btrfs_progs=
+        pkg_whois=
+        pkg_ntpdate=
 
-    pkg_thunar_archive_plugin=
-    pkg_thunar_vcs_plugin=
+        pkg_cups_x2go=
 
-    pkg_orage=
-    pkg_xarchiver=
+        pkg_thunar_archive_plugin=
+        pkg_thunar_vcs_plugin=
 
-    pkg_mate=
+        pkg_orage=
+        pkg_xarchiver=
 
-    pkg_guake=
-    pkg_gucharmap=
+        pkg_mate=
 
-    # LightDM is broken in EPEL for CentOS/RHEL 8: try sddm
-    # hxxps://forums.centos.org/viewtopic.php?t=72433
-    [ -z "${pkg_lightdm-}" ] || pkg_sddm=1
-    pkg_lightdm=
+        pkg_guake=
+        pkg_gucharmap=
 
-    pkg_libreoffice_nlpsolver=0
-    pkg_libreoffice_officebean=0
-    pkg_libreoffice_postgresql=0
-    pkg_libreoffice_rhino=0
+        # LightDM is broken in EPEL for CentOS/RHEL 8: try sddm
+        # https://forums.centos.org/viewtopic.php?t=72433
+        [ -z "${pkg_lightdm-}" ] || pkg_sddm=1
+        pkg_lightdm=
 
-    # No qmmp in EPEL for CentOS/RHEL 8: try rhythmbox
-    [ -z "${pkg_qmmp-}" ] || pkg_rhythmbox=1
-    pkg_qmmp=
+        pkg_libreoffice_nlpsolver=0
+        pkg_libreoffice_officebean=0
+        pkg_libreoffice_postgresql=0
+        pkg_libreoffice_rhino=0
 
-    pkg_putty=
-    pkg_remmina=
+        # No qmmp in EPEL for CentOS/RHEL 8: try rhythmbox
+        [ -z "${pkg_qmmp-}" ] || pkg_rhythmbox=1
+        pkg_qmmp=
 
-    pkg_pidgin_otr=
-    pkg_filezilla=
-    pkg_codeblocks=
+        pkg_putty=
+        pkg_remmina=
 
-    pkg_nm_vpnc=
-    pkg_nm_strongswan=
+        pkg_pidgin_otr=
+        pkg_filezilla=
+        pkg_codeblocks=
 
-    pkg_vdpau_va_gl=
-    pkg_va_utils=
-    pkg_va_intel_hybrid_driver=
+        pkg_nm_vpnc=
+        pkg_nm_strongswan=
+
+        pkg_vdpau_va_gl=
+        pkg_va_utils=
+        pkg_va_intel_hybrid_driver=
+    fi
+elif is_fedora; then
+    if fedora_version_le $releasemaj 27; then
+        if fedora_version_le $releasemaj 26; then
+            if fedora_version_le $releasemaj 25; then
+                if fedora_version_le $releasemaj 24; then
+                    if fedora_version_le $releasemaj 19; then
+                        if fedora_version_le $releasemaj 18; then
+                            if fedora_version_le $releasemaj 15; then
+                                if fedora_version_le $releasemaj 14; then
+                                    if fedora_version_lt $releasemaj 12; then
+                                        pkg_vdpau=
+                                    fi # < 12
+                                    pkg_va=
+                                fi # <= 14
+                                [ "${x11_server-}" != 'Xspice' ] ||
+                                    x11_server='Xorg'
+                            fi # <= 15
+                            pkg_va_vdpau_driver=
+                        fi # <= 18
+                        [ "${x11_server-}" != 'x2go' ] || x11_server='Xorg'
+                    fi
+                    pkg_glvnd=
+
+                    pkg_chromium=
+                    pkg_pidgin_hangouts=
+
+                    pkg_nm_openconnect=
+                    pkg_nm_l2tp=
+                fi # <= 24
+                pkg_driverctl=
+
+                pkg_slick_greeter=
+
+                pkg_glvnd_egl=
+                pkg_glvnd_gles=
+                pkg_glvnd_glx=
+            fi # <= 25
+            pkg_va_intel_hybrid_driver=
+        fi # <= 26
+        pkg_iucode_tool=
+        pkg_remmina_plugins_secret=
+    fi # <= 27
+    if fedora_version_ge $releasemaj 24; then
+        pkg_wireshark_gnome=
+    fi # >= 24
 fi
 
 ## List of packages to install
@@ -6078,12 +6128,19 @@ if [ -n "${pkg_grub2-}" ]; then
         pkg_switch grub2_efi_x64
     fi
 
-    # grub2-pc
-    [ -z "${pkg_grub2_pc-}" ] || PKGS="$PKGS grub2-pc"
-    # grub2-efi-ia32
-    [ -z "${pkg_grub2_efi_ia32-}" ] || PKGS="$PKGS grub2-efi-ia32"
-    # grub2-efi-x64
-    [ -z "${pkg_grub2_efi_x64-}" ] || PKGS="$PKGS grub2-efi-x64"
+    if is_centos || fedora_version_gt $releasemaj 26; then
+        # grub2-pc
+        [ -z "${pkg_grub2_pc-}" ] || PKGS="$PKGS grub2-pc"
+        # grub2-efi-ia32
+        [ -z "${pkg_grub2_efi_ia32-}" ] || PKGS="$PKGS grub2-efi-ia32"
+        # grub2-efi-x64
+        [ -z "${pkg_grub2_efi_x64-}" ] || PKGS="$PKGS grub2-efi-x64"
+    else
+        # grub2 (pc)
+        [ -z "${pkg_grub2_pc-}" ] || PKGS="$PKGS grub2"
+        # grub2-efi (x64)
+        [ -z "${pkg_grub2_efi_x64-}" ] || PKGS="$PKGS grub2-efi"
+    fi
 fi
 
 pkg_switch kernel
@@ -6911,7 +6968,8 @@ if [ -n "${has_de-}" ]; then
 
             if [ -n "${gtk_based_de-}" ]; then
                 # remmina-plugins-secret
-                PKGS="$PKGS remmina-plugins-secret"
+                [ -z "${pkg_remmina_plugins_secret-}" ] ||
+                    PKGS="$PKGS remmina-plugins-secret"
             fi
         fi
 
@@ -6952,10 +7010,9 @@ if [ -n "${has_de-}" ]; then
     if [ -n "${pkg_wireshark-}" ]; then
        PKGS="$PKGS wireshark"
 
-       if is_fedora || centos_version_le $releasemaj 7; then
+       if [ -n "${gtk_based_de-}" ]; then
            # wireshark-gnome
-           [ -z "${gtk_based_de-}" ] ||
-               PKGS="$PKGS wireshark-gnome"
+           [ -z "${pkg_wireshark_gnome-}" ] || PKGS="$PKGS wireshark-gnome"
        fi
     fi
 fi # [ -n "${has_de-}" ]
