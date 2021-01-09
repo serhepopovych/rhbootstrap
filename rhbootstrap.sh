@@ -6168,7 +6168,9 @@ pkg_switch kernel
 if [ -n "${pkg_kernel-}" ]; then
     PKGS="$PKGS kernel microcode_ctl"
 
-    if fedora_version_le 12 || centos_version_lt 7; then
+    if centos_version_lt $releasemaj 7 ||
+       fedora_version_le $releasemaj 12
+    then
         PKGS="$PKGS kernel-firmware"
     else
         PKGS="$PKGS linux-firmware"
@@ -6959,7 +6961,7 @@ if [ -n "${has_de-}" ]; then
         if [ -n "${pkg_keepassx2-}" ]; then
             if centos_version_le $releasemaj 7; then
                 PKGS="$PKGS keepassx2"
-            elif is_centos || fedora_version_ge 26; then
+            elif is_centos || fedora_version_ge $releasemaj 26; then
                 PKGS="$PKGS keepassxc"
             else
                 PKGS="$PKGS keepassx"
