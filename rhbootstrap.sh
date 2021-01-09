@@ -5704,7 +5704,7 @@ fi
 # Pick repo names on host to configure and use for initial setup
 eval $(
     yum --noplugins -C repolist | \
-    sed -n -e '2,$ s,^\W\?\(\w\+\).*$,\1,p' | \
+    sed -n -e '2,$ s,^\W\?\([^[:space:]/]\+\).*$,\1,p' | \
     sed -n -e '1 s,.\+,baserepo=\0,p' \
            -e '2 s,.\+,updatesrepo=\0,p'
 )
