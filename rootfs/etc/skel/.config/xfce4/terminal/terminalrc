@@ -29,9 +29,9 @@ MiscShowUnsafePasteDialog=TRUE
 ScrollingLines=30000
 ScrollingOnOutput=FALSE
 ScrollingUnlimited=TRUE
-FontUseSystem=TRUE
 FontAllowBold=FALSE
 ShortcutsNoMnemonics=TRUE
 ShortcutsNoMenukey=TRUE
 ShortcutsNoHelpkey=TRUE
+FontName=Fixed 12
 

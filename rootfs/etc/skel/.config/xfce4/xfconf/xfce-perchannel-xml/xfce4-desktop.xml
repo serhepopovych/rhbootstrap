@@ -29,5 +29,13 @@
   </property>
   <property name="desktop-icons" type="empty">
     <property name="primary" type="bool" value="true"/>
+    <property name="file-icons" type="empty">
+      <property name="show-filesystem" type="bool" value="true"/>
+      <property name="show-removable" type="bool" value="false"/>
+    </property>
+  </property>
+  <property name="last" type="empty">
+    <property name="window-width" type="int" value="672"/>
+    <property name="window-height" type="int" value="551"/>
   </property>
 </channel>

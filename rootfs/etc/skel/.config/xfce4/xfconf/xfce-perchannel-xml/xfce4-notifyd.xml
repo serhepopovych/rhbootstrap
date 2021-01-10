@@ -14,4 +14,5 @@
   <property name="notify-location" type="uint" value="2"/>
   <property name="log-level" type="uint" value="0"/>
   <property name="log-level-apps" type="uint" value="0"/>
+  <property name="theme" type="string" value="Default"/>
 </channel>
