@@ -476,7 +476,7 @@ distro_version()
     local root="${1-}"
 
     sed -n \
-        -e '1 s/^CentOS\s\+.\+\s\+\([0-9]\+\.[0-9]\+\).*$/\1/p' \
+        -e '1 s/^CentOS\s\+.\+\s\+\([0-9.]\+\).*$/\1/p' \
         -e '1 s/^Fedora\s\+.\+\s\+\([0-9]\+\).*$/\1/p' \
         "$root/etc/redhat-release" \
         #
@@ -5208,6 +5208,7 @@ distro_centos()
         )"
         releasemaj="${releasever%.*}"
         releasemin="${releasever#*.}"
+        releasemm="$releasemaj.$releasemin"
 
         if [ -n "$is_archive" ]; then
             # Releases available at $baseurl
@@ -5590,6 +5591,8 @@ distro_fedora()
     # Usage: distro_post_core_hook
     distro_post_core_hook()
     {
+        releasemm="$releasever"
+
         if [ -n "$is_archive" ]; then
             # Releases available at $baseurl
             local url="${baseurl%/*/$releasever/*}"
@@ -6882,15 +6885,15 @@ if [ -n "${has_de-}" ]; then
             PKGS="$PKGS libreoffice-wiki-publisher"
 
         if [ -n "${gtk_based_de-}" ]; then
-            if centos_version_ge $releasever 7.4 &&
-               centos_version_lt $releasever 8.3
+            if centos_version_ge $releasemm 7.4 &&
+               centos_version_lt $releasemm 8.3
             then
                 # libreoffice-gtk2
                 pkg_enable libreoffice_gtk2
                 [ -z "${pkg_libreoffice_gtk2-}" ] ||
                     PKGS="$PKGS libreoffice-gtk2"
             fi
-            if centos_version_ge $releasever 7.4; then
+            if centos_version_ge $releasemm 7.4; then
                 # libreoffice-gtk3
                 pkg_enable libreoffice_gtk3
                 [ -z "${pkg_libreoffice_gtk3-}" ] ||
