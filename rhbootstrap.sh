@@ -5278,6 +5278,11 @@ distro_centos()
         # VirtIO-Win
         VIRTIO_WIN_URL='https://fedorapeople.org/groups/virt/virtio-win/virtio-win.repo'
 
+        # common
+        EPEL_RELEASE_RPM_NAME='epel-release'
+        ELREPO_RELEASE_RPM_NAME='elrepo-release'
+        RPMFUSION_RELEASE_RPM_NAME='rpmfusion-free-release'
+
           if [ $releasemaj -eq 8 ]; then
             # EPEL
             EPEL_URL='http://dl.fedoraproject.org/pub/epel'
@@ -5389,7 +5394,12 @@ distro_centos()
 
             in_chroot <"$rpm_gpg_dir/epel/RPM-GPG-KEY-EPEL-$releasemaj" \
                 "$install_root" \
-                "rpm --import '/dev/stdin' && rpm -i '$EPEL_RELEASE_URL'" \
+                "
+                 rpm --import '/dev/stdin' && {
+                     rpm -U '$EPEL_RELEASE_URL' || \
+                     rpm --quiet -q '$EPEL_RELEASE_RPM_NAME'
+                 }
+                " \
             && has_enable 'repo' || repo_epel=''
 
             if [ -n "$repo_epel" ]; then
@@ -5423,7 +5433,12 @@ distro_centos()
         if [ -n "$repo_elrepo" ]; then
             in_chroot <"$rpm_gpg_dir/elrepo/RPM-GPG-KEY-elrepo.org" \
                 "$install_root" \
-                "rpm --import '/dev/stdin' && rpm -i '$ELREPO_RELEASE_URL'" \
+                "
+                 rpm --import '/dev/stdin' && {
+                     rpm -U '$ELREPO_RELEASE_URL' || \
+                     rpm --quiet -q '$ELREPO_RELEASE_RPM_NAME'
+                 }
+                " \
             && has_enable 'repo' || repo_elrepo=''
         fi
 
@@ -5459,7 +5474,12 @@ distro_centos()
         if [ -n "$repo_rpmfusion" ]; then
             in_chroot <"$rpm_gpg_dir/rpmfusion/RPM-GPG-KEY-rpmfusion-free-el-$releasemaj" \
                 "$install_root" \
-                "rpm --import '/dev/stdin' && rpm -i '$RPMFUSION_RELEASE_URL'" \
+                "
+                 rpm --import '/dev/stdin' && {
+                     rpm -U '$RPMFUSION_RELEASE_URL' || \
+                     rpm --quiet -q '$RPMFUSION_RELEASE_RPM_NAME'
+                 }
+                " \
             && has_enable 'repo' || repo_rpmfusion=''
         fi
 
