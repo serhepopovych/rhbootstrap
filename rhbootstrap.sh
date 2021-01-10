@@ -417,6 +417,8 @@ version_cmp()
 is_centos() { [ "${distro-}" = 'centos' ] || return; }
 is_fedora() { [ "${distro-}" = 'fedora' ] || return; }
 
+is_centos_stream() { is_centos && [ -z "${releasever%%*-stream}" ] || return; }
+
 # Usage: centos_version_cmp <v1> <v2>
 centos_version_cmp()
 {
@@ -476,6 +478,7 @@ distro_version()
     local root="${1-}"
 
     sed -n \
+        -e '1 s/^CentOS\s\+Stream\s\+.\+\s\+\([0-9]\+\).*$/\1-stream/p' \
         -e '1 s/^CentOS\s\+.\+\s\+\([0-9.]\+\).*$/\1/p' \
         -e '1 s/^Fedora\s\+.\+\s\+\([0-9]\+\).*$/\1/p' \
         "$root/etc/redhat-release" \
@@ -5206,8 +5209,13 @@ distro_centos()
         releasever="$(
             distro_version "$install_root"
         )"
-        releasemaj="${releasever%.*}"
-        releasemin="${releasever#*.}"
+        if [ -z "${releasever%%*-stream}" ]; then
+            releasemaj="${releasever%-stream}"
+            releasemin=163164162145141155 # stream -> %03o
+        else
+            releasemaj="${releasever%.*}"
+            releasemin="${releasever#*.}"
+        fi
         releasemm="$releasemaj.$releasemin"
 
         if [ -n "$is_archive" ]; then
@@ -5475,23 +5483,28 @@ distro_centos()
         releasemaj=8
         releasemin=${_releasemin}
     else
-        # There is some incompatibility with rpmdb(1)
-        # format that can't be addressed with rpmdb_dump/load
-        # helpers: install last supported and then update.
-        [ $releasever != '6.10' ] ||
-            releasever='6.9'
+        if [ -z "${releasever%%*-stream}" ]; then
+            releasemaj="${releasever%-stream}"
+            releasemin=163164162145141155 # stream -> %03o
+        else
+            # There is some incompatibility with rpmdb(1)
+            # format that can't be addressed with rpmdb_dump/load
+            # helpers: install last supported and then update.
+            [ $releasever != '6.10' ] ||
+                releasever='6.9'
 
-        releasemaj="${releasever%%.*}"
+            releasemaj="${releasever%%.*}"
+
+            if [ "$releasemaj" != "$releasever" ]; then
+                releasemin="${releasever#$releasemaj.}"
+                releasemin="${releasemin%%.*}"
+            else
+                releasemin=${_releasemin}
+            fi
+        fi
 
         [ $releasemaj -ge 4 ] ||
             fatal 'no support for CentOS before 4 (no yum?)'
-
-        if [ "$releasemaj" != "$releasever" ]; then
-            releasemin="${releasever#$releasemaj.}"
-            releasemin="${releasemin%%.*}"
-        else
-            releasemin=${_releasemin}
-        fi
     fi
 
     # $subdir
@@ -5761,7 +5774,7 @@ esac
 setarch "$basearch" \
 yum -y \
     ${releasemaj:+
-        --releasever=$releasemaj
+        --releasever=$releasever
      } \
     ${baseurl:+
         --disablerepo='*'
@@ -5909,6 +5922,10 @@ pkg_wireshark_gnome=1
 
   if is_centos; then
     if centos_version_gt $releasemaj 7; then
+        if is_centos_stream; then
+            pkg_wireshark_gnome=
+        fi
+
         # Disable packages that not available in repositories for CentOS/RHEL 8+
         pkg_iucode_tool=
 
