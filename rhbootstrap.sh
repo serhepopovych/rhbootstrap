@@ -25,7 +25,7 @@
 # Requires: mountpoint(1), chroot(1), find(1), xargs(1), install(1), dd(1),
 #           sed(1), mv(1), rm(1), ln(1), cat(1), rpm(1), yum(1), curl(1), id(1),
 #           uname(1), mount(8), umount(8), setarch(8), chmod(1), mktemp(1),
-#           base64(1), tr(1)
+#           base64(1), tr(1), date(1)
 
 # Set option(s)
 set -e
@@ -418,6 +418,27 @@ is_centos() { [ "${distro-}" = 'centos' ] || return; }
 is_fedora() { [ "${distro-}" = 'fedora' ] || return; }
 
 is_centos_stream() { is_centos && [ -z "${releasever%%*-stream}" ] || return; }
+
+centos_stream_compose_id()
+{
+    is_centos || return
+
+    local r="${releasever%-stream}"
+    [ "$r" != "$releasever" ] || return
+
+    if [ -n "${baseurl-}" ]; then
+        local url="${baseurl%%/$releasever/*}/$releasever/COMPOSE_ID"
+
+        r="$(
+            curl -f -s "$url" | \
+            sed -n \
+                -e "1 {s/^CentOS-Stream-$r-\(\S\+\)\s*$/\1/p;q}"
+        )"
+        [ -n "$r" ] && echo "$r" && return 0 ||:
+    fi
+    # Fake compose_id based on start timestamp
+    date --date="@$start_timestamp" '+%Y%m%d'
+}
 
 # Usage: centos_version_cmp <v1> <v2>
 centos_version_cmp()
@@ -5175,6 +5196,8 @@ cd "$install_root"
 
 ## Install core components
 
+# start timestamp
+start_timestamp="$(date '+%s')"
 # repository URLs
 baseurl=''
 updatesurl=''
@@ -5212,7 +5235,7 @@ distro_centos()
         )"
         if [ -z "${releasever%%*-stream}" ]; then
             releasemaj="${releasever%-stream}"
-            releasemin=163164162145141155 # stream -> %03o
+            releasemin="$(centos_stream_compose_id)"
         else
             releasemaj="${releasever%.*}"
             releasemin="${releasever#*.}"
@@ -5506,7 +5529,7 @@ distro_centos()
     else
         if [ -z "${releasever%%*-stream}" ]; then
             releasemaj="${releasever%-stream}"
-            releasemin=163164162145141155 # stream -> %03o
+            releasemin="$(centos_stream_compose_id)"
         else
             # There is some incompatibility with rpmdb(1)
             # format that can't be addressed with rpmdb_dump/load
