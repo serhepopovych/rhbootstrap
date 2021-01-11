@@ -22,7 +22,7 @@
 # OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 # SOFTWARE.
 
-# Requires: mountpoint(1), chroot(1), find(1), xargs(1), install(1), dd(1),
+# Requires: mountpoint(1), chroot(1), find(1), xargs(1), install(1), head(1),
 #           sed(1), mv(1), rm(1), ln(1), cat(1), rpm(1), yum(1), curl(1), id(1),
 #           uname(1), mount(8), umount(8), setarch(8), chmod(1), mktemp(1),
 #           base64(1), tr(1), date(1)
@@ -123,6 +123,19 @@ _exit()
     local rc="${1:-${_rc}}"
     [ "$rc" -ge 0 -o "$rc" -lt 0 ] 2>/dev/null || rc=${_rc}
     exit $rc
+}
+
+# Usage: safe_curl <url> <size> [<curl(1) options>...]
+safe_curl()
+{
+    local func="${FUNCNAME:-safe_curl}"
+
+    local url="${1:?missing 1st arg to ${func}() <url>}" && shift
+    local size="${1:?missing 2d arg to ${func}() <size>}" && shift
+
+    [ "$size" -gt 0 ] 2>/dev/null
+
+    curl "$@" -f -s "$url" | head -c $size
 }
 
 # Usage: has_enable <var>
@@ -430,7 +443,7 @@ centos_stream_compose_id()
         local url="${baseurl%%/$releasever/*}/$releasever/COMPOSE_ID"
 
         r="$(
-            curl -f -s "$url" | \
+            safe_curl "$url" 1024 | \
             sed -n \
                 -e "1 {s/^CentOS-Stream-$r-\(\S\+\)\s*$/\1/p;q}"
         )"
@@ -4510,7 +4523,7 @@ if [ -n "$config" ]; then
     if [ -z "${config##*://*}" ]; then
         url="$config"
         config="$this_dir/${config##*/}"
-        curl -s -o "$config" "$url" ||
+        safe_curl "$url" $((128*1024)) >"$config" ||
             fatal 'unable to fetch "%s" config\n' "$url"
         unset url
     fi
@@ -5468,8 +5481,8 @@ distro_centos()
 
         # VirtIO-Win
         if [ -n "$repo_virtio_win" ]; then
-            curl -s -o "$install_root/etc/yum.repos.d/virtio-win.repo" \
-                "$VIRTIO_WIN_URL" \
+            safe_curl "$VIRTIO_WIN_URL" 1024 \
+                >"$install_root/etc/yum.repos.d/virtio-win.repo" \
             && has_enable 'repo' || repo_virtio_win=''
         fi
 
@@ -5589,7 +5602,7 @@ distro_centos()
                 "$host" "$subdir" "$releasever" "$arch"
         )"
         [ -n "$base" ] &&
-            curl -L -f -s -o /dev/null "$base" &&
+            safe_curl "$base" $((128*1024)) -L >/dev/null &&
         echo "baseurl='$base'" || return
 
         updates="$(
@@ -5600,7 +5613,7 @@ distro_centos()
                 "$host" "$subdir" "$releasever" "$arch"
         )"
         [ "$base" != "$updates" ] &&
-            curl -L -f -s -o /dev/null "$updates" &&
+            safe_curl "$updates" $((128*1024)) -L >/dev/null &&
         echo "updatesurl='$updates'" ||:
     }
       if url="$(host='mirror' release_url)"; then
