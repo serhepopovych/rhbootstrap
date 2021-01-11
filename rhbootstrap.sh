@@ -5250,8 +5250,9 @@ distro_centos()
             releasemaj="${releasever%-stream}"
             releasemin="$(centos_stream_compose_id)"
         else
-            releasemaj="${releasever%.*}"
-            releasemin="${releasever#*.}"
+            releasemaj="${releasever%%.*}"
+            releasemin="${releasever#$releasemaj.}"
+            releasemin="${releasemin%%.*}"
         fi
         releasemm="$releasemaj.$releasemin"
 
