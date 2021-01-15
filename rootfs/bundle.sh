@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Requires: tar(1), gzip(1), base64(1), find(1), sed(1), grep(1), cat(1)
-#           mktemp(1), md5sum(1)
+#           mktemp(1), md5sum(1), tee(1)
 
 # Environment:
 #   batch=1 # batch run
@@ -72,7 +72,7 @@ fatal()
 # Usage: find_up <path> [<name>]
 find_up()
 {
-    local func="${FUNCNAME:-find_rhbootstrap}"
+    local func="${FUNCNAME:-find_up}"
 
     local path="${1:?missing 1st arg to ${func}() <path>}"
     if [ -d "$path" ]; then
@@ -123,7 +123,7 @@ c="$this_dir/$n.conf" && [ -r "$c" ] || fatal 'no config file "%s"' "$c"
 z="$n.tgz"
 b="$z.b64"
 t="$(mktemp -p '' "$b.XXXXXXXX")"
-# rhbootstrap
+# script to patch
 r="$(find_up "$this_dir/rhbootstrap.sh")"
 
 tar 2>/dev/null \
