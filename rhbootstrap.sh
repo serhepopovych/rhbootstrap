@@ -3987,7 +3987,7 @@ login_banners=''
 # SELinux context autorelabel
 autorelabel=''
 # Recursive name (DNS) resolution servers
-_nameservers='1.1.1.1'
+_nameservers='1.1.1.1 8.8.8.8'
 nameservers=''
 
 # KVM nesting
@@ -4657,6 +4657,12 @@ fi
 
 [ "$passwordless_root" != '0' ] || passwordless_root=''
 [ "$autopassword_root" != '0' ] || autopassword_root=''
+
+# $nameservers
+
+if [ -n "${nameservers-}" ]; then
+    nameservers="$(IFS=',' && echo $nameservers)"
+fi
 
 # $libvirt_qemu_user
 
