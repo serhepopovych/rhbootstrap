@@ -1,0 +1,18 @@
+#! /bin/bash
+
+. /etc/init.d/functions
+
+cd /etc/sysconfig/network-scripts
+. ./network-functions
+
+[ -f ../network ] && . ../network
+
+CONFIG=$1
+need_config "$CONFIG"
+source_config
+
+check_device_down "$DEVICE" && exit 0
+
+/etc/sysconfig/network-scripts/ifdown-eth "$CONFIG"
+
+/sbin/ip link del dev $DEVICE ||:

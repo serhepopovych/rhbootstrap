@@ -1,0 +1,13 @@
+ONBOOT=no
+#UUID=$(uuidgen)
+NAME=dummy1
+DEVICE=dummy1
+#GROUP=default
+TYPE=dummy
+MTU=65536
+BOOTPROTO=none
+NOZEROCONF=yes
+ARPCHECK=none
+IPV6INIT=no
+IPV6_AUTOCONF=no
+IPV6_DISABLED=1
