@@ -3230,6 +3230,25 @@ _EOF
 # Usage: config_network
 config_network()
 {
+    nm_devgroup()
+    {
+        local unpack_dir="$install_root"
+# md5(nm-devgroup.tgz.b64) = 75c59b9a7539bf673f6ea040f1ec9f63
+[ -d "$unpack_dir" ] || install -d "$unpack_dir"
+base64 -d -i <<'nm-devgroup.tgz.b64' | tar -zxf - -C "$unpack_dir"
+H4sIABhGB2AAA+3VW0/bMBQA4D77V5yllSKqpbnQJtJKeZk0tAdgmsQTmpBJTlqrxYlsZ+VS/vsc
+p0MIiQECMU0730Pj+nrs47Ro8vAIzbpSy0Mu+RxVWAhdc5MvUI2KsFYYNLUtRHFQ4M+5qpq690KR
+lWWZe1oPn64cj+1nkqZpMulFye54kvYgGY1es+zzNNpwBdBTVWX+1O+p9n8UPiP/RbWWr7kBL8t/
+1OY/y8aU//fwVP7f4vxd/ieTR/OfJWOX/zgd70Zx0oviLI1t/qM33Oej/vP89z9AeC5keM71grE+
+nGh7Bz7BoFbV/EzyC4Q9IQ2qkue4D3s8N6KS++wUBn0I5ggJ/IDNBvBSGIgYy7lG8AaJB0IysPzu
+D8Tf+L9/SfwdmE5d23BnO679YutQ87yN4ZAvEXSjENYIOV+tsACuQV9drIRc2pmhneumqT+2893a
+W2rjCa7tujdRvz8MB4mtGt5690KLbWgFhO1t11c6r2Qp5qHs7n2gcyVqo9kIRnd1ZSPdVjVjn4+P
+vnw9mHmD2GMSsTjrhtvluhaP6apROW7rGRMl2HhkG8/B9+OTb0EbyhTMArszOe1OaHZ3OF2gru/M
+L7Dkzcr4zPXFS8xB1OB2rtGAfRuhDQXcO2mLbpjHSsHYNgt/+04RQgghhBBCCCGEEEIIIYQQQggh
+5H39AlO38qQAKAAA
+nm-devgroup.tgz.b64
+    }
+
     nm_dnsmasq_split_0()
     {
         :
@@ -3338,6 +3357,13 @@ dnsmasq.tgz.b64
         for n in ${nameservers}; do
             echo "nameserver $n" >>"$t"
         done
+    fi
+
+    # Support for network device group in NetworkManager ifcfg-rh plugin
+    if [ -d "$install_root/etc/sysconfig/network-scripts" ]; then
+        if [ -n "${pkg_nm-}" ]; then
+            nm_devgroup
+        fi
     fi
 
     # Enable/disable legacy network scripts when no/ NetworkManager available

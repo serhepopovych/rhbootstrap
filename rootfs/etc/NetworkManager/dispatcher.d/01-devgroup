@@ -1,0 +1,27 @@
+#! /bin/bash
+
+# Usage: $prog_name <interface> <action>
+[ $# -ge 2 ] || exit 0
+
+case "$2" in
+    'pre-up'|'pre-down') ;;
+    *) exit 0    ;;
+esac
+
+# Make sure we called as symlink in pre-{up,down}.d/
+[ -z "${0##*/$2.d/*}" ] || exit 1
+
+cd /etc/sysconfig/network-scripts
+. ./network-functions
+
+CONFIG="$1"
+need_config "$CONFIG"
+source_config
+
+if [ -n "${GROUP-}" ]; then
+    [ "$2" = 'pre-up' ] || GROUP='default'
+
+    exec ip link set dev "$1" group "$GROUP"
+fi
+
+exit 0
