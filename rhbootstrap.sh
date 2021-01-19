@@ -4562,7 +4562,7 @@ if [ -n "$install_root" ]; then
 
     # Make path absolute
     install_root="$(cd "$install_root" >/dev/null 2>&1 && echo "$PWD")" ||
-        fatal 'fail to resolve install root to absolute path'
+        fatal 'fail to resolve install root to absolute path\n'
     install_root="${install_root%/}"
 
     [ -n "$install_root" ] || build_info=''
@@ -5532,7 +5532,7 @@ distro_centos()
         fi
 
         [ $releasemaj -ge 4 ] ||
-            fatal 'no support for CentOS before 4 (no yum?)'
+            fatal 'no support for CentOS before 4 (no yum?)\n'
     fi
 
     # $subdir
@@ -5594,7 +5594,7 @@ distro_centos()
         # Archive
         is_archive='1'
     else
-        fatal "CentOS $releasever isn't available for download"
+        fatal "CentOS $releasever isn't available for download\n"
     fi
     eval "$url"
 
@@ -5667,7 +5667,7 @@ distro_fedora()
         releasemaj="${releasever%%.*}"
 
         [ $releasemaj -ge 10 ] ||
-            fatal 'no support for Fedora before 10 (Fedora Core?)'
+            fatal 'no support for Fedora before 10 (Fedora Core?)\n'
     fi
 
     # $subdir
@@ -5723,7 +5723,7 @@ distro_fedora()
         # Archive
         is_archive='1'
     else
-        fatal "Fedora $releasever isn't available for download"
+        fatal "Fedora $releasever isn't available for download\n"
     fi
     eval "$url"
 
