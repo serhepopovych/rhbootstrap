@@ -200,20 +200,20 @@ pkg_switch()
 {
     local pkg_name
     eval "$(pkg_name "${1-}")" || return
-    local on_off="${2-}"
 
     eval "local pkg_val=\"\${$pkg_name-}\""
 
-    case "$on_off" in
-       '') on_off="$pkg_val" ;;
-       0)  on_off='' ;;
-       *)  on_off=1 ;;
-    esac
-
-    eval "
-        [ '$pkg_val' -eq 0 ] 2>/dev/null &&
-            $pkg_name='' || $pkg_name='$on_off'
-    "
+    if [ "$pkg_val" -eq 0 ] 2>/dev/null; then
+        eval "$pkg_name=''"
+    else
+        local on_off="${2-}"
+        case "$on_off" in
+           '')  on_off="$pkg_val" ;;
+            0)  on_off='' ;;
+            *)  on_off=1 ;;
+        esac
+        eval "$pkg_name='$on_off'"
+    fi
 }
 
 # Usage: pkg_enable <pkg_name>
