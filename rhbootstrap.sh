@@ -3227,9 +3227,108 @@ _EOF
     )
 }
 
-# Usage: config_resolv_conf
-config_resolv_conf()
+# Usage: config_network
+config_network()
 {
+    nm_dnsmasq_split_0()
+    {
+        :
+    }
+    nm_dnsmasq_split_1()
+    {
+        {
+            echo '[main]'
+            echo 'dns=dnsmasq'
+        } >>"$install_root/etc/NetworkManager/conf.d/dnsmasq.conf"
+    }
+    nm_dnsmasq_split_2()
+    {
+        local unpack_dir="$install_root"
+# md5(dnsmasq.tgz.b64) = a31a2e4e41ee811d423317cda05fc9ef
+[ -d "$unpack_dir" ] || install -d "$unpack_dir"
+base64 -d -i <<'dnsmasq.tgz.b64' | tar -zxf - -C "$unpack_dir"
+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
+Mjm3AFAAAA==
+dnsmasq.tgz.b64
+        nameservers="127.0.0.1 ${nameservers:-${_nameservers}}"
+        in_chroot "$install_root" 'systemctl enable dnsmasq.service'
+    }
+    "nm_dnsmasq_split_${nm_dnsmasq_split:-0}"
+
+    # Configure nameserver(s) in resolv.conf
     local t="$install_root/etc/resolv.conf"
     if [ -n "${nameservers}${install_root%/}" ]; then
         : >"$t"
@@ -3239,6 +3338,18 @@ config_resolv_conf()
         for n in ${nameservers}; do
             echo "nameserver $n" >>"$t"
         done
+    fi
+
+    # Enable/disable legacy network scripts when no/ NetworkManager available
+    if [ -x "$install_root/etc/init.d/network" ]; then
+        if [ -z "${pkg_nm-}" ] ||
+           centos_version_gt $releasemaj 6 ||
+           fedora_version_ge $releasemaj 18
+        then
+            in_chroot "$install_root" 'systemctl enable network.service'
+        else
+            in_chroot "$install_root" 'systemctl disable network.service'
+        fi
     fi
 }
 
@@ -3989,6 +4100,8 @@ autorelabel=''
 # Recursive name (DNS) resolution servers
 _nameservers='1.1.1.1 8.8.8.8'
 nameservers=''
+# DNS split using NetworkManager and dnsmasq
+nm_dnsmasq_split=''
 
 # KVM nesting
 kvm_nested=''
@@ -4118,6 +4231,11 @@ Options and their defaults:
         Add .autorelabel to <install_root> or / if <install_root> not given
     --nameservers=${nameservers:-<value>}, --no-nameservers
         Configure or do not configure resolv.conf with specified nameserver(s)
+    --nm-dnsmasq-split=${nm_dnsmasq_split:-<none>}, --no-nm-dnsmasq-split
+        Configure or do not configure NetworkManager with DNS split. Available
+        options are 1 with dnsmasq(8) instance supervised by NetworkManager, 2
+        with external dnsmasq(8) instance and NetworkManager dispatcher hooks to
+        manage split records in /run/dnsmasq.servers-file.
 
     --kvm-nested, --no-kvm-nested
         Enable/disable KVM nested virtualization via /etc/modprobe.d/kvm.conf.
@@ -4383,6 +4501,21 @@ while [ $# -gt 0 ]; do
             nameservers="${1##--nameservers=}"
             [ -n "$nameservers" ] || exit
             arg="--nameservers='$nameservers'"
+            ;;
+
+        --nm-dnsmasq-split)
+            [ -n "${2-}" ] || exit
+            nm_dnsmasq_split="$2"
+            arg="--nm-dnsmasq-split '$nm_dnsmasq_split'"
+            shift
+            ;;
+        --nm-dnsmasq-split=*)
+            nm_dnsmasq_split="${1##--nm-dnsmasq-split=}"
+            [ -n "$nm_dnsmasq_split" ] || exit
+            arg="--nm-dnsmasq-split='$nm_dnsmasq_split'"
+            ;;
+        --no-nm-dnsmasq-split)
+            nm_dnsmasq_split=''
             ;;
 
         --kvm-nested)
@@ -4968,8 +5101,8 @@ _EOF
             config_login_banners
         fi
 
-        # Configure nameserver(s) in resolv.conf
-        config_resolv_conf
+        # Configure networking
+        config_network
 
         # Configure Xorg server
         if [ "${x11_server-}" = 'Xorg' ]; then
@@ -5006,19 +5139,6 @@ _EOF
         if [ -n "${pkg_iptables-}" ]; then
             in_chroot "$install_root" 'systemctl enable iptables.service'
             in_chroot "$install_root" 'systemctl enable ip6tables.service'
-        fi
-
-        if [ -x "$install_root/etc/init.d/network" ]; then
-            if [ -n "${pkg_network_scripts-}" ]; then
-                # Enable legacy network scripts if they was explicitly enabled
-                in_chroot "$install_root" 'systemctl enable network.service'
-            else
-                # Disable legacy network scripts if NetworkManager enabled
-                if [ -n "${pkg_nm-}" ]; then
-                    in_chroot "$install_root" \
-                        'systemctl disable network.service'
-                fi
-            fi
         fi
 
         # Disable lm_sensors as they require explicit configuration
@@ -5746,6 +5866,31 @@ distro_fedora()
 }
 
 distro_${distro}
+
+# $nm_dnsmasq_split
+
+case "${nm_dnsmasq_split-}" in
+    '1') if centos_version_lt $releasemaj 7 ||
+            fedora_version_lt $releasemaj 15
+         then
+             fatal 'nm-dnsmasq-split option %s not available for %s %s (%s)\n' \
+                   "$nm_dnsmasq_split" "$distro" "$releasever" \
+                   'too old NetworkManager'
+         fi
+         pkg_nm=1
+         ;;
+    '2') if centos_version_lt $releasemm 7.4 ||
+            fedora_version_lt $releasemaj 21
+         then
+             fatal 'nm-dnsmasq-split option %s not available for %s %s (%s)\n' \
+                   "$nm_dnsmasq_split" "$distro" "$releasever" \
+                   'too old dnsmasq'
+         fi
+         pkg_nm=1 && pkg_dnsmasq=1
+         ;;
+     '') ;;
+    *) fatal 'nm-dnsmasq-split option should be 1 or 2\n' ;;
+esac
 
 if [ -n "$has_glibc_langpack" ]; then
     # Language packages
@@ -6489,6 +6634,8 @@ fi
 
 [ -z "${pkg_wpa_supplicant-}" ] || PKGS="$PKGS wpa_supplicant"
 [ -z "${pkg_usb_modeswitch-}" ] || PKGS="$PKGS usb_modeswitch"
+
+[ -z "${pkg_dnsmasq-}" ] || PKGS="$PKGS dnsmasq"
 
 ## Firewall management utilities
 

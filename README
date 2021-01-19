@@ -132,6 +132,11 @@ Options and their defaults:
         Add .autorelabel to <install_root> or / if <install_root> not given
     --nameservers=${nameservers:-<value>}, --no-nameservers
         Configure or do not configure resolv.conf with specified nameserver(s)
+    --nm-dnsmasq-split=${nm_dnsmasq_split:-<none>}, --no-nm-dnsmasq-split
+        Configure or do not configure NetworkManager with DNS split. Available
+        options are 1 with dnsmasq(8) instance supervised by NetworkManager, 2
+        with external dnsmasq(8) instance and NetworkManager dispatcher hooks to
+        manage split records in /run/dnsmasq.servers-file.
 
     --kvm-nested, --no-kvm-nested
         Enable/disable KVM nested virtualization via /etc/modprobe.d/kvm.conf.
