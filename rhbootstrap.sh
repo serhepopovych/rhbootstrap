@@ -4564,8 +4564,12 @@ if [ -n "$install_root" ]; then
     install_root="$(cd "$install_root" >/dev/null 2>&1 && echo "$PWD")" ||
         fatal 'fail to resolve install root to absolute path'
     install_root="${install_root%/}"
+
+    [ -n "$install_root" ] || build_info=''
+else
+    install_root='/'
+    build_info=''
 fi
-[ -n "$install_root" ] || build_info=''
 
 # Install build information
 if [ -n "$build_info" ]; then
@@ -5173,46 +5177,6 @@ _EOF
 }
 trap 'exit_handler' EXIT
 
-if [ -n "$install_root" ]; then
-    # Bind mount proc, sys and dev filesystems
-    for f in '/proc' '/sys' '/dev'; do
-        d="$install_root$f"
-        install -d "$d" && mount --bind "$f" "$d"
-    done
-
-    # Point /etc/mtab to /proc/self/mounts unless it already exist
-    f="$install_root/etc/mtab"
-    if [ ! -f "$f" ]; then
-        install -D -m 0644 /dev/null "$f"
-        ln -sf '../proc/self/mounts' "$f"
-    fi
-
-    # Hide /proc/1 from target (e.g. for rpm pre/post scripts)
-    f="$install_root/proc/1"
-    d="$install_root/.tmp/1"
-
-    [ -d "$f" ] && install -d "$d" && mount --bind "$d" "$f" ||:
-
-    if [ -n "${install_root%/}" ]; then
-        # Need access to resolvers: prefer system, fall back to public
-        f='/etc/resolv.conf'
-        d="$install_root$f"
-
-        if [ -s "$f" ]; then
-            install -D -m 0644 "$f" "$d"
-        else
-            for f in ${nameservers:-${_nameservers}}; do
-                echo "nameserver $f" >>"$d"
-            done
-        fi
-    fi
-
-    unset f d
-else
-    install_root='/'
-fi
-cd "$install_root"
-
 ## Install core components
 
 # start timestamp
@@ -5817,6 +5781,46 @@ eval $(
 # Extract gpg keys used to sign rpm in repos
 rpm_gpg_dir="$(mktemp -d -p '' 'rpm-gpg.XXXXXXXX')" || exit
 config_rpm_gpg
+
+# Prepare filesystem
+
+if [ -n "${install_root%/}" ]; then
+    # Bind mount proc, sys and dev filesystems
+    for f in '/proc' '/sys' '/dev'; do
+        d="$install_root$f"
+        install -d "$d" && mount --bind "$f" "$d"
+    done
+
+    # Point /etc/mtab to /proc/self/mounts unless it already exist
+    f="$install_root/etc/mtab"
+    if [ ! -f "$f" ]; then
+        install -D -m 0644 /dev/null "$f"
+        ln -sf '../proc/self/mounts' "$f"
+    fi
+
+    # Hide /proc/1 from target (e.g. for rpm pre/post scripts)
+    f="$install_root/proc/1"
+    d="$install_root/.tmp/1"
+
+    [ -d "$f" ] && install -d "$d" && mount --bind "$d" "$f" ||:
+
+    if [ -n "${install_root%/}" ]; then
+        # Need access to resolvers: prefer system, fall back to public
+        f='/etc/resolv.conf'
+        d="$install_root$f"
+
+        if [ -s "$f" ]; then
+            install -D -m 0644 "$f" "$d"
+        else
+            for f in ${nameservers:-${_nameservers}}; do
+                echo "nameserver $f" >>"$d"
+            done
+        fi
+    fi
+
+    unset f d
+fi
+cd "$install_root"
 
 # Prepare rpm database
 setarch "$basearch" \
