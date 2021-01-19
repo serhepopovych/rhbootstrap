@@ -3608,7 +3608,7 @@ config_readonly_root()
     # see https://bugzilla.redhat.com/show_bug.cgi?id=1207083
     if centos_version_eq $releasemaj 7; then
         # /usr/lib/tmpfiles.d/legacy.conf: /var/lock -> ../run/lock
-        ln -sf '../run/lock' "$install_root/var/lock"
+        ln -snf '../run/lock' "$install_root/var/lock"
 
         t="$install_root/usr/lib/tmpfiles.d/legacy.conf"
         if [ -s "$t" ]; then
@@ -4011,7 +4011,7 @@ xfce4.tgz.b64
                 "$d/.ssh" \
                 "$d/tmp" \
                 #
-            ln -sf '.local/bin' "$d/bin"
+            ln -snf '.local/bin' "$d/bin"
         fi
     }
 
@@ -5965,7 +5965,7 @@ if [ -n "${install_root%/}" ]; then
     f="$install_root/etc/mtab"
     if [ ! -f "$f" ]; then
         install -D -m 0644 /dev/null "$f"
-        ln -sf '../proc/self/mounts' "$f"
+        ln -snf '../proc/self/mounts' "$f"
     fi
 
     # Hide /proc/1 from target (e.g. for rpm pre/post scripts)
