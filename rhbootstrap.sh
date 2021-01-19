@@ -3997,6 +3997,48 @@ W9rSlra05T9W/gWbedbXABgBAA==
 xfce4.tgz.b64
     }
 
+    # Usage: rsync_wrapper <unpack_dir>
+    rsync_wrapper()
+    {
+        local func="${FUNCNAME:-rsync_wrapper}"
+
+        local unpack_dir="${1:-missing 1st arg to ${func}() <unpack_dir>}"
+# md5(rsync-wrapper.tgz.b64) = 27ba0336474bbc375511fb86a0e5ee50
+[ -d "$unpack_dir" ] || install -d "$unpack_dir"
+base64 -d -i <<'rsync-wrapper.tgz.b64' | tar -zxf - -C "$unpack_dir"
+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
+rsync-wrapper.tgz.b64
+    }
+
     # Usage: make_xdg_dirs <homedir>
     make_xdg_dirs()
     {
@@ -4024,6 +4066,7 @@ xfce4.tgz.b64
     screenrc "$t"
     xfce4 "$t"
     ssh_agent_start4bashrc "$t"
+    rsync_wrapper "$t"
 
     # /etc/skel
     t="$install_root/etc/skel"
@@ -4033,6 +4076,7 @@ xfce4.tgz.b64
     screenrc "$t"
     xfce4 "$t"
     ssh_agent_start4bashrc "$t"
+    rsync_wrapper "$t"
 
     unset -f make_xdg_dirs mc_ini screenrc xfce4 ssh_agent_start4bashrc
 }
