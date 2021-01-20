@@ -4870,6 +4870,13 @@ if [ -n "${nameservers-}" ]; then
     nameservers="$(IFS=',' && echo $nameservers)"
 fi
 
+# $nm_dnsmasq_split
+
+case "${nm_dnsmasq_split-}" in
+    '1'|'2'|'') ;;
+    *) fatal 'nm-dnsmasq-split option should be 1 or 2\n' ;;
+esac
+
 # $libvirt_qemu_user
 
 if [ -n "$libvirt_qemu_user" ]; then
@@ -5936,31 +5943,6 @@ distro_fedora()
 
 distro_${distro}
 
-# $nm_dnsmasq_split
-
-case "${nm_dnsmasq_split-}" in
-    '1') if centos_version_lt $releasemaj 7 ||
-            fedora_version_lt $releasemaj 15
-         then
-             fatal 'nm-dnsmasq-split option %s not available for %s %s (%s)\n' \
-                   "$nm_dnsmasq_split" "$distro" "$releasever" \
-                   'too old NetworkManager'
-         fi
-         pkg_nm=1
-         ;;
-    '2') if centos_version_lt $releasemm 7.4 ||
-            fedora_version_lt $releasemaj 21
-         then
-             fatal 'nm-dnsmasq-split option %s not available for %s %s (%s)\n' \
-                   "$nm_dnsmasq_split" "$distro" "$releasever" \
-                   'too old dnsmasq'
-         fi
-         pkg_nm=1 && pkg_dnsmasq=1
-         ;;
-     '') ;;
-    *) fatal 'nm-dnsmasq-split option should be 1 or 2\n' ;;
-esac
-
 if [ -n "$has_glibc_langpack" ]; then
     # Language packages
     eval $(
@@ -6159,6 +6141,34 @@ if [ -n "$nfs_root" ]; then
         >"$install_root/etc/dracut.conf.d/01-nfs.conf"
 
     # No minimal install as we need at least dracut modules and nfs-utils
+    minimal_install=''
+fi
+
+# $nm_dnsmasq_split
+
+case "${nm_dnsmasq_split-}" in
+    '1') if centos_version_lt $releasemaj 7 ||
+            fedora_version_lt $releasemaj 15
+         then
+             # Too old NetworkManager
+             nm_dnsmasq_split=''
+         else
+             pkg_nm=1
+         fi
+         ;;
+    '2') if centos_version_lt $releasemm 7.4 ||
+            fedora_version_lt $releasemaj 21
+         then
+             # Too old dnsmasq
+             nm_dnsmasq_split=''
+         else
+             pkg_nm=1 && pkg_dnsmasq=1
+         fi
+         ;;
+esac
+
+if [ -n "$nm_dnsmasq_split" ]; then
+    # No minimal install as we need at least NetworkManager
     minimal_install=''
 fi
 
