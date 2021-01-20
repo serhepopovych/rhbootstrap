@@ -427,6 +427,15 @@ version_cmp()
     return 3
 }
 
+version_lt() { [ "$(version_cmp "$@")" = '-1' ] || return; }
+version_eq() { [ "$(version_cmp "$@")" =  '0' ] || return; }
+version_gt() { [ "$(version_cmp "$@")" =  '1' ] || return; }
+
+version_le() { version_eq "$@" || return; }
+version_ge() { version_eq "$@" || return; }
+
+version_neq() { ! version_eq "$@" || return; }
+
 is_centos() { [ "${distro-}" = 'centos' ] || return; }
 is_fedora() { [ "${distro-}" = 'fedora' ] || return; }
 
@@ -5589,7 +5598,7 @@ distro_centos()
 
         # EPEL
         if [ -n "$repo_epel" ]; then
-            if [ $releasemaj -eq 8 -a $releasemin -lt 3 ]; then
+            if [ $releasemaj -eq 8 ] && version_lt $releasemm 8.3; then
                 # Enable PowerTools if EPEL is enabled to satisfy dependencies
                 in_chroot "$install_root" \
                     'yum config-manager --set-enabled PowerTools' \
@@ -5623,7 +5632,7 @@ distro_centos()
                     {} \+
                 fi
 
-                if [ $releasemaj -eq 4 -a $releasemin -le 3 ]; then
+                if [ $releasemaj -eq 4 ] && version_le $releasemm 4.3; then
                     # Backup /etc/yum.conf since yum(1) from EPEL doesn't have it
                     local t="$install_root/etc/yum.conf"
                     ln -nf "$t" "$t.rhbootstrap" ||:
