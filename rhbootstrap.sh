@@ -135,7 +135,17 @@ safe_curl()
 
     [ "$size" -gt 0 ] 2>/dev/null
 
-    curl "$@" -f -s "$url" | head -c $size
+    exec 4>&1
+    eval $(
+        exec 3>&1
+        {
+            curl "$@" -f -s "$url"
+            echo >&3 "local rc=$?"
+        } | head -c $size >&4
+    )
+    exec 4>&-
+
+    return $rc
 }
 
 # Usage: has_enable <var>
