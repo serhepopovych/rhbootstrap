@@ -11,17 +11,19 @@ esac
 # Make sure we called as symlink in pre-{up,down}.d/
 [ -z "${0##*/$2.d/*}" ] || exit 1
 
-cd /etc/sysconfig/network-scripts
-. ./network-functions
-
-CONFIG="$1"
-need_config "$CONFIG"
-source_config
-
-if [ -n "${GROUP-}" ]; then
-    [ "$2" = 'pre-up' ] || GROUP='default'
-
-    exec ip link set dev "$1" group "$GROUP"
+if [ "$2" = 'pre-up' ]; then
+    CONFIG="/etc/sysconfig/network-scripts/ifcfg-$1"
+    if [ -r "$CONFIG" ]; then
+        eval $(
+            # Source in subshell to not pollute environment
+            if . "$CONFIG" >/dev/null 2>&1; then
+                echo "GROUP='${GROUP-}'"
+            fi
+        )
+    fi
+    [ -n "${GROUP-}" ] || exit 0
+else
+    GROUP='default'
 fi
 
-exit 0
+exec ip link set dev "$1" group "$GROUP"

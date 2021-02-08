@@ -3252,19 +3252,20 @@ config_network()
     nm_devgroup()
     {
         local unpack_dir="$install_root"
-# md5(nm-devgroup.tgz.b64) = 76f86334122bf7ef2068cb90f1d35e59
+# md5(nm-devgroup.tgz.b64) = 0ab2661091f59a897181988fffe35fc6
 [ -d "$unpack_dir" ] || install -d "$unpack_dir"
 base64 -d -i <<'nm-devgroup.tgz.b64' | tar -zxf - -C "$unpack_dir"
-H4sIACFPB2AAA+3VW0/bMBQA4D77V5wlkSKqpbkQWmmlvEwa2gMwTeIJTcg4J63V4kS2s8Io/31O
-0qFtEgMEYpp2vpc4vh77OC1aER+jXVd6ecQVn6OOC2lqbsUC9aiIa41RU7tCkkYFfp3rqqkHT5Q4
-k8mkezq/P7tymidJOs7HWe76Zbv5OB1ANho9Z9nHaYzlGmCgq8r+qd9D7f8ofET+i2qtnnMDnp5/
-95JT/l/DQ/l/ifPv8r+3d2/+J1n+a/7TyXjXff/JC+7zXv95/v03EF9IFV9ws2DMh1Pj7sA7CGpd
-zc8Vv0TYl8qiLrnAA9jnwspKHbAzCHyI5ggZfIHNBvBKWkgYE9wgeEHmgVQMnLD/Awk34Y9fknAH
-ptOubbizHde+uDo0XLQxHPElgmk0whpB8NUKC+AGzPXlSqqlmxnauW6a+m073627pS6e6Jtb9ybx
-/WEcZK5qeOv9FFrqQisgbm+7uTaiUqWcx6q/95ERWtbWsBGM7urKRnVbNYy9Pzn+8PFw5gWpxxRi
-cd4Pd8v1LR4zVaMFbusZkyW4eFQbz+Hnk9NPURvKFOwC+zM5609odnc4faBd31lYYMmblQ1Z1xev
-UICsodu5QQvua4Q2FOi+SVfshnmslIxts/C37xQhhBBCCCGEEEIIIYQQQgghhBBCXtd3AZ7YcgAo
-AAA=
+H4sIAA3WIGAAA+2VXU/bMBSGe51fcZZGy0BL8wFppAG9mTS0C2DaxBVCk3FPWotgR7bDN/99TtpV
+LRKDDbQJ7Tw3sR2f9xzntR20PN5He6H06R6TbII6HgtTM8unqAfjuNYYNbVrJGk0xvOJVk3d+00S
+R1EU3dNx/9m1080kSYd5kifDXpJtbOZZD7LB4Dlpn0ZjLNMAPa2U/dW8x96/UvAJ/o/VhXzODvgD
+/4siJ///Bo/5/xLfv/M/zx/yP82SovU/TdI8G+YbvSQthmnRg+QF1/kg/7n//TcQnwgZnzAz9bw+
+HBq3Bz5AUGs1+S7ZGcK2kBZ1yTiOYJtxK5QceUcQ9CGaIGRwDLe3gJfCQuJ5nBkEP8h8ENIDRzj7
+gYS34c+bJFyDra3u3fraPK7tuDE0jLc17LFTBNNohAsEzqoKx8AMmKuzSshTpwyt1k1Tv2/17twu
+dfVE1y7vTdLvr8dB5obW7/yl0lLPEyUczUrbWVQFx1tgpzgr9ePB/qfPuzt+3J4Jc2W4kqWYxHJ2
+OiLDtaitiUXJy0kUpH4X1KlG2gnPwv0VyRY8ZxUE7xb9lj58U43m2K7FNCdmilUFVoFUFmpVVY1F
+QHkutJJnKO1KrMs4WEo3it35jGXjBLLR2/Re8kURfKrA3/16cPhlJwxuukZ0F/orE0ux6K55SwNu
+gbL9uPMof8VyrAx2s+biYyxZU9nQc8EeXiIHUUPnm0ELrlanlPrQ3Siu2UX53r8+BgRBEARBEARB
+EARBEARBEARBEARBEATxqvkBy+LWjAAoAAA=
 nm-devgroup.tgz.b64
     }
 
