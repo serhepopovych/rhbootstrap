@@ -3,7 +3,7 @@
 # Use graphical or text install?
 text
 ## Use NFS as installation source
-#nfs --server=203.0.113.1 --dir=/srv/nfs/linux/centos/8/amd64/iso-root
+#nfs --server=203.0.113.1 --dir=/srv/nfs/linux/redhat/centos/8/amd64/iso-root
 # Use HTTP mirrors as installation source
 url --mirrorlist=http://mirrorlist.centos.org/?release=8&arch=x86_64&repo=BaseOS
 # Add repos during install
@@ -103,34 +103,99 @@ pwpolicy luks --minlen=6 --minquality=1 --notstrict --nochanges --notempty
 
 %pre
 
-device_name='/dev/vda'
-if [ ! -b "$device_name" ]; then
-    device_name='/dev/xvda'
-    if [ ! -b "$device_name" ]; then
-        device_name='/dev/nvme0n1'
-        if [ ! -b "$device_name" ]; then
-            device_name='/dev/sda'
+# Select disk(s) to install
+find_disk()
+{
+    local disk_name="/dev/vd${1}"
+    if [ ! -b "$disk_name" ]; then
+        disk_name="/dev/xvd${1}"
+        if [ ! -b "$disk_name" ]; then
+            disk_name="/dev/sd${1}"
+            if [ ! -b "$disk_name" ]; then
+                case "${1}" in
+                    'a') disk_name='/dev/nvme0n1' ;;
+                    'b') disk_name='/dev/nvme1n1' ;;
+                esac
+                if [ ! -b "$disk_name" ]; then
+                   return 1
+                fi
+            fi
         fi
+    fi
+    echo "$disk_name"
+}
+! disk_b="$(find_disk 'b')" ||:
+! disk_a="$(find_disk 'a')" && disk_a="$disk_b" && disk_b='' ||:
+
+[ -n "$disk_a" ] || disk_a='/dev/sda'
+
+disks="$disk_a"
+md_opts=''
+
+# Create Linux Multiple Devices (MD) software raid level 1
+if [ -n "$disk_b" ]; then
+    if grep -q '\(^\|\s\+\)ks\.raid1\(\s\+\|$\)' /proc/cmdline; then
+        disks="${disks},${disk_b}"
+        md_opts='--level=1'
+        echo "$disk_b" >'/tmp/disk_b.txt'
     fi
 fi
 
+# Encrypt partition using Device mapper crypt target with LUKS
 if grep -q '\(^\|\s\+\)ks\.luks\(\s\+\|$\)' /proc/cmdline; then
     pv_opts='--encrypted --passphrase="setup"'
 else
     pv_opts=''
 fi
 
+# Maximum partition size
+if grep -q '\(^\|\s\+\)ks\.spare\(\s\+\|$\)' /proc/cmdline; then
+    pa_opts='--maxsize=39936'
+else
+    pa_opts=''
+fi
+
 cat >'/tmp/storage.txt' <<EOF
+
+# System bootloader configuration
+bootloader --append=" crashkernel=auto zswap.enabled=1 nosmt" --location=mbr --boot-drive=$disk_a
 
 # Partition clearing information
 zerombr
-clearpart --drives=$device_name --all --disklabel=gpt
+clearpart --drives=$disks --all --disklabel=gpt
+EOF
+
+if [ -n "$md_opts" ]; then
+    cat >>'/tmp/storage.txt' <<EOF
 
 # Disk partitioning information
-part biosboot   --fstype="biosboot" --ondisk=$device_name --size=1
-part /boot      --fstype="ext2"     --ondisk=$device_name --size=512  --label=BOOT
-part /boot/efi  --fstype="efi"      --ondisk=$device_name --size=256  --label=ESP
-part pv.1742                        --ondisk=$device_name --size=29696 --grow $pv_opts
+part biosboot --fstype="biosboot" --ondisk=$disk_a --size=1
+part raid.11  --ondisk=$disk_a --size=512
+part raid.12  --ondisk=$disk_a --size=256
+part raid.13  --ondisk=$disk_a --size=29696 --grow $pa_opts
+
+part biosboot --fstype="biosboot" --ondisk=$disk_b --size=1
+part raid.21  --ondisk=$disk_b --size=512
+part raid.22  --ondisk=$disk_b --size=256
+part raid.23  --ondisk=$disk_b --size=29696 --grow $pa_opts
+
+# Linux Multiple Devices (MD)
+raid /boot     --fstype="ext2"     --device=boot     --level=1 raid.11 raid.21 --label=BOOT
+raid /boot/efi --fstype="efi"      --device=efi      --level=1 raid.12 raid.22 --label=ESP
+raid pv.1742                       --device=system   --level=1 raid.13 raid.23 $pv_opts
+EOF
+else
+    cat >>'/tmp/storage.txt' <<EOF
+
+# Disk partitioning information
+part biosboot  --fstype="biosboot" --ondisk=$disk_a --size=1
+part /boot     --fstype="ext2"     --ondisk=$disk_a --size=512  --label=BOOT
+part /boot/efi --fstype="efi"      --ondisk=$disk_a --size=256  --label=ESP
+part pv.1742                       --ondisk=$disk_a --size=29696 --grow $pa_opts $pv_opts
+EOF
+fi
+
+cat >>'/tmp/storage.txt' <<EOF
 
 # Logical Volume Management (LVM)
 volgroup cl pv.1742 --reserved-percent=20
@@ -141,9 +206,14 @@ logvol swap  --vgname=cl --name=swap  --thin --poolname=pool0 --fstype=swap --re
 logvol /     --vgname=cl --name=root  --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=5120 --label=ROOT --maxsize=10240 --grow
 logvol /var  --vgname=cl --name=var   --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=3072 --label=VAR
 logvol /home --vgname=cl --name=home  --thin --poolname=pool0 --fstype=ext4 --fsoptions="defaults,discard" --size=1024 --label=HOME
-
-# System bootloader configuration
-bootloader --append=" crashkernel=auto zswap.enabled=1 nosmt" --location=mbr --boot-drive=$device_name
 EOF
+
+%end
+
+%post
+
+if disk_b="$(cat '/tmp/disk_b.txt' 2>/dev/null)" && [ -n "$disk_b" ]; then
+    grub2-install --recheck "$disk_b" ||:
+fi
 
 %end
