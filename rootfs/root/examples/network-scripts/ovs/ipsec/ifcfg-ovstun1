@@ -1,0 +1,24 @@
+ONBOOT=no
+#UUID=$(uuidgen)
+NAME=ovstun1
+DEVICE=ovstun1
+#GROUP=default
+TYPE=OVSTunnel
+DEVICETYPE=ovs
+OVS_BRIDGE="ovsbr1"
+OVS_TUNNEL_TYPE=gre
+OVS_TUNNEL_OPTIONS=""
+OVS_TUNNEL_OPTIONS="${OVS_TUNNEL_OPTIONS} options:remote_ip=<remote_ip>"
+OVS_TUNNEL_OPTIONS="${OVS_TUNNEL_OPTIONS} options:local_ip=<local_ip>"
+OVS_TUNNEL_OPTIONS="${OVS_TUNNEL_OPTIONS} options:remote_name=<remote_name>"
+OVS_TUNNEL_OPTIONS="${OVS_TUNNEL_OPTIONS} options:key=128"
+# Enable fragmentation by clearing options:df_default to support
+# bridge MTU on underlay network with broken Path MTU Discovery.
+OVS_TUNNEL_OPTIONS="${OVS_TUNNEL_OPTIONS} options:df_default=false"
+OVS_OPTIONS="vlan_mode=native-untagged tag=4 trunks=2"
+BOOTPROTO=none
+NOZEROCONF=yes
+ARPCHECK=no
+IPV6_DISABLED=yes
+IPV6INIT=no
+IPV6_AUTOCONF=no

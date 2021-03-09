@@ -1,0 +1,15 @@
+ONBOOT=yes
+#UUID=$(uuidgen)
+NAME=ovsbond1
+DEVICE=bond1
+#GROUP=default
+TYPE=OVSPort
+DEVICETYPE=ovs
+OVS_BRIDGE="ovsbr1"
+OVS_OPTIONS="vlan_mode=native-untagged tag=2 trunks=0"
+BOOTPROTO=none
+NOZEROCONF=yes
+ARPCHECK=no
+IPV6_DISABLED=yes
+IPV6INIT=no
+IPV6_AUTOCONF=no

@@ -1,0 +1,2 @@
+pref 0x7fe0 iif en0 table 100
+pref 0x7fe0 from 203.0.113.1 table 100

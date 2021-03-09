@@ -1,0 +1,7 @@
+# IPsec IKE implementation to use with openvswitch-ipsec
+OPTIONS="--ike-daemon=libreswan"
+
+# Fix openvswitch-ipsec packaging issue in ovs/dirs.py by
+# explicitly providing environment variable OVS_PKGDATADIR
+# with correct path to data directory.
+OVS_PKGDATADIR="/usr/share/openvswitch"

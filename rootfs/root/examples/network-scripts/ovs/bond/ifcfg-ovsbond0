@@ -1,0 +1,16 @@
+ONBOOT=yes
+#UUID=$(uuidgen)
+NAME=ovsbond0
+DEVICE=ovsbond0
+DEVICETYPE=ovs
+TYPE=OVSBond
+OVS_BRIDGE=ovsbr1
+OVS_OPTIONS="bond_mode=balance-tcp lacp=active"
+BOND_IFACES="en1 en2"
+#BOND_IFACES="en1 en2 en3 en4"
+BOOTPROTO=none
+NOZEROCONF=yes
+ARPCHECK=no
+IPV6_DISABLED=yes
+IPV6INIT=no
+IPV6_AUTOCONF=no

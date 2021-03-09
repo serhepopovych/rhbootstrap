@@ -1,0 +1,10 @@
+OpenVswitch documentation
+-------------------------
+  https://docs.openvswitch.org/en/latest/howto/ipsec/
+  https://docs.openvswitch.org/en/latest/tutorials/ipsec/
+
+RHEL/CentOS/Fedora
+------------------
+There might be necessary to add exception to SELinux policy. See output of
+    grep 'openvswitch' '/var/log/audit/audit.log' | audit2allow -M 'ovs-ipsec'
+on how to do that.
