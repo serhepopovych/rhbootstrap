@@ -3402,17 +3402,23 @@ dnsmasq.tgz.b64
 config_xorg()
 {
     local unpack_dir="$install_root"
-# md5(xorg.tgz.b64) = 0e0d9c172eddae3c3834862d4e3690e7
+# md5(xorg.tgz.b64) = 117b2f5acf423eada2f6c44b6997c92b
 [ -d "$unpack_dir" ] || install -d "$unpack_dir"
 base64 -d -i <<'xorg.tgz.b64' | tar -zxf - -C "$unpack_dir"
-H4sIACJPB2AAA+3STU/bQBAGYF/tXzFyL62qOLPeLztcuEDTQ1SkoKg3hOxNsQh2tBgp5NczdkNa
-0lAOpEKo80heW/bqnR2NXVsMvwsxXDX+R1I09Twph8GBIbFa93eye++fhbTWCKmUkAEKidIEoA99
-kH3ubttLDxD4pmn/tu+l7++U2zP/HAc3TV21je/fvLpGN2Cj1LPzt8pu5y+7fUIbqQPAA/T3ov98
-/lNXtFVTQzz5OfE4Cr+Wrm6reeV8GM8q395dLgYYR1H4AUSa4cqmCMdgMEGE8Ro+fjk//QRXt/d1
-MQKlEmvgerw+gmWxuB6BVYnKYDJeR+GkKd2iqh3EjzEXfUgMm119PAgpDQhlUxDGKPpG5Wwq6FK0
-zwAMxlOqBZ9nXcknsdKYlTXZr1hMNFIsvafFKloyWrToYk0G1lIsFaJfbxs7mE37WGrWIK5yfL5Z
-rZM8/b1ZIfJu3263m5ztsTbb+gK05HS4jDpNqX2ArmCOgi4FuUx3243Cb8tuYGEYn3k3d967sisV
-/9F+dFKXm+lG0Vv/ZowxxhhjjDHGGGOMMcYYY4wxxhhj7B95ACMcB9oAKAAA
+H4sIAMBoT2AAA+2WUW/bNhDH/Wp9ioP6sHStJFKiRNt92da0dYAEDeAi2FuhSHRCxCYFkoqdfPqe
+FDtJ3XTBMGNFUf4AUwZ1+t/9ffTZwlXJ35Qma20u4kqreVwngz1DEJ7n/RXZvfbvKSNpVhSM8nRA
+aEaydAD5vgt5ita60gAMjNbun+Keu/+TIp7of04je6PKxsnK9nv/MUfX4IKx7/WfkiLb6X9BGR0A
+2YvDZ/jF+x+8gEvnGjtJktVqFddiscCWLxPbNo02Lrk6r3WVCBVVZdL1Ksd2saQxopJWahWtGxu1
+561ybXQhlDDlInK6rS6bso6WurUikta2IprLdYC5DqUtzxcC+lhZwWx7zqAW17ISr6G0sBK/GQGt
+leoCHwkPj48JJ2xCKJDi7V8TXvz5Dj5tkoQYoQ1YuZQL7OOdyoF9CXPdqhqkAoVVdrbA3lgnljbu
+6piW16gOy3bhZIP1bGveCFgwrVJdRHf80YXFp1VdiqVWwUxUDq1DeKSa1r1dlNaGAWw4qoVyci6F
+gRDNnc6S9JHJvurTrupt/EnpcMfouq3cv3jiyG4/AAi12rn5cQbhsVTtemf/sPd2WrpLCBM0msjO
+QCKuseTfH2I/Nht7F0obEd4leKfqje/gRx9Zzx55av6PCX51lXTa7GP6Pzv/CWd8QDPOC5qxrIuj
+eZHlfv7/H9wPs5O7jofB8GGEDcMzaVyLM52EQTB8ATQdkTVPCfwBBYkJgektHHz49P4lXOJ8rCbA
+WMwLuJrevoGmWlxNgLOYjeBkehsMTzSOYakEhFuZz71ICJuoXh5olhVAGU+B4v8BvIfpeErxxTCu
+AIimOB4reHXWpfxKFv9ArHkxepAlcU5QFvdx4QyXES457WSLEXCOspgIj969bHQ262XRbEHIeky+
+bzbP43H62Cyl4y5u1+1G576sTVifAJcxFjdCpynaB+gSjvGnbkwYjLN0124wvBvPw2F4asRcGCPq
+LlX4jf3HI9vPbI/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/nV+AL5bEV4gAoAAA=
 xorg.tgz.b64
 }
 
