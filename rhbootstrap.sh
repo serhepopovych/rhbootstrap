@@ -4021,6 +4021,15 @@ c21fHx/58AOskkl8nxpab6zzVfR0+T1+PFl56QfWtc36erlJgvmdffJtFSeBN4EmzkCp3LXT2XcS
 kgQEq403XQedzXeI+ZueKnWicBVYWaP2ZbxNFoEHQYz+7Ha5YE+8V14XZmQ3RjvI8Xfc0uqlbWlL
 W9rSlra05T9W/gWbedbXABgBAA==
 xfce4.tgz.b64
+        if [ "${has_dm-}" = 'lightdm' -a -n "${pkg_light_locker-}" ]; then
+            local p1='^\(\s*<property name="LockCommand" \)type="empty"/>$'
+            local p2='\1type="string" value="light-locker-command --lock"/>'
+
+            local t='.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-session.xml'
+            sed -i "$unpack_dir/etc/skel/$t" \
+                -e "s,$p1,$p2,g" \
+                #
+        fi
     }
 
     # Usage: rsync_wrapper <unpack_dir>
@@ -7141,6 +7150,9 @@ if [ -n "${has_de-}" ]; then
             # slick-greeter
             [ -z "${pkg_slick_greeter-}" ] ||
                 PKGS="$PKGS lightdm-settings slick-greeter"
+            # light-locker
+            [ -z "${pkg_light_locker-}" ] ||
+                PKGS="$PKGS light-locker"
             has_dm='lightdm'
         fi
 
