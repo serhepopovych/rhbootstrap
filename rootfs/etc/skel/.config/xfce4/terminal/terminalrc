@@ -34,4 +34,5 @@ ShortcutsNoMnemonics=TRUE
 ShortcutsNoMenukey=TRUE
 ShortcutsNoHelpkey=TRUE
 FontName=Fixed 12
+ColorForeground=#bfbfbfbfbfbf
 
