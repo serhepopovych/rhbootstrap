@@ -5142,6 +5142,10 @@ _EOF
                     speed="$1"
                     parity="$2"
                     word="$3"
+                else
+                    speed=''
+                    parity=''
+                    word=''
                 fi
                 [ -n "$speed" ] || speed='115200'
                 case "$parity" in
