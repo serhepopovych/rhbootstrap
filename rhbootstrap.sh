@@ -5420,6 +5420,16 @@ esac
 
 ## Initial setups
 
+# Is system installed?
+installed=''
+
+# Usage: exit_installed
+exit_installed()
+{
+    installed='1'
+    exit 0
+}
+
 exit_handler()
 {
     local rc=$?
@@ -5428,7 +5438,7 @@ exit_handler()
     # Do not interrupt exit handler
     set +e
 
-    if [ $rc -eq 0 ]; then
+    if [ -n "${installed-}" ]; then
         ## Add helpers
         local systemctl_helper="$install_root/bin/systemctl"
 
@@ -6760,7 +6770,7 @@ fi
 ## Minimal install
 
 if [ -n "${minimal_install-}" ]; then
-    exit 0
+    exit_installed
 fi
 
 ## Release specific tricks
@@ -8148,4 +8158,4 @@ for f in $PKGS; do
     echo "$f"
 done | setarch $basearch xargs chroot "$install_root" yum -y install
 
-exit 0
+exit_installed
