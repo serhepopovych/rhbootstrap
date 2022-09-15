@@ -448,8 +448,8 @@ version_lt() { [ "$(version_cmp "$@")" = '-1' ] || return; }
 version_eq() { [ "$(version_cmp "$@")" =  '0' ] || return; }
 version_gt() { [ "$(version_cmp "$@")" =  '1' ] || return; }
 
-version_le() { version_eq "$@" || return; }
-version_ge() { version_eq "$@" || return; }
+version_le() { [ "$(version_cmp "$@")" -le '0' ] || return; }
+version_ge() { [ "$(version_cmp "$@")" -ge '0' ] || return; }
 
 version_neq() { ! version_eq "$@" || return; }
 
