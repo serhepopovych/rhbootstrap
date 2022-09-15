@@ -82,13 +82,13 @@ msg()
 # Usage: info <fmt> ...
 info()
 {
-    msg "$@"
+    msg "$@" || return
 }
 
 # Usage: error <fmt> ...
 error()
 {
-    msg "$@" >&2
+    msg "$@" >&2 || return
 }
 
 # Usage: error_exit
@@ -101,9 +101,16 @@ error_exit()
 fatal()
 {
     local rc=$?
+
+    # Usage: return_rc
+    return_rc()
+    {
+        [ $rc -ne 0 ] && return $rc || return 123
+    }
+
     printf >&2 -- '%s: ' "$prog_name"
-    error "$@"
-    exit $rc
+
+    return_rc || error_exit "$@"
 }
 
 # Usage: abort <fmt> ...
@@ -111,7 +118,7 @@ abort()
 {
     local rc=$?
     trap - EXIT
-    V=1 error "$@"
+    V=1 error "$@" ||:
     exit $rc
 }
 
