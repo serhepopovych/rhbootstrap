@@ -5261,11 +5261,11 @@ fi
 
 # Install build information
 if [ -n "$build_info" ]; then
-    d="$install_root/.${prog_name%.sh}"
+    d="$install_root/.${this_prog%.sh}"
 
     # $this
     if [ -e "$this" ]; then
-        install -D "$this" "$d/$prog_name"
+        install -D "$this" "$d/$this_prog"
     fi
 
     # $config
