@@ -3895,7 +3895,7 @@ config_lvm2()
 {
     # Disable lvmetad to conform to CentOS 8+
     local t="$install_root/etc/lvm/lvm.conf"
-    if [ -f "$t" ]; then
+    if [ -f "$t" ] && grep -q '^\s*use_lvmetad\s*=' "$t"; then
         sed -i "$t" \
             -e '/^\s*use_lvmetad\s*=\s*[0-9]\+\s*$/s/[0-9]/0/' \
             #
