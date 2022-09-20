@@ -3988,7 +3988,7 @@ config_libvirt()
             #
         do
             eval "
-                if v=\"\$$n\" && [ -n \"\$v\" ]; then
+                if v=\"\${$n-}\" && [ -n \"\$v\" ]; then
                     n=\"\$var_${n}\"
                     v=\"$r\"
                 else
@@ -4006,6 +4006,41 @@ config_libvirt()
                 ${r4:+-e "$r4"} \
                 ${r5:+-e "$r5"} \
                 #
+        fi
+
+        if grep -q 'SocketMode=' "$install_root/etc/libvirt/libvirtd.conf"; then
+            # Usage: systemd_edit <socket> [<group>] [<mode>]
+            systemd_edit()
+            {
+                local func="${FUNCNAME:-systemd_edit}"
+
+                local socket="${1:?missing 1st arg to ${func}() <socket>}"
+
+                if [ -n "${2-}" -o -n "${3-}" ] &&
+                    in_chroot "$install_root" 'command -v systemd-run >/dev/null 2>&1'
+                then
+                    # https://github.com/systemd/systemd/issues/21862
+                    in_chroot "$install_root" \
+                        'exec >/dev/null 2>&1 <&- systemd-run "$@"' - \
+                            --quiet \
+                            --pty \
+                            --wait \
+                            --collect \
+                            --service-type='exec' \
+                            --setenv=SYSTEMD_EDITOR='tee' \
+                            -- \
+                        /bin/sh -c "exec systemctl edit '$socket' <<EOF
+[Socket]
+${2:+SocketGroup=$2}
+${3:+SocketMode=$3}
+EOF"
+                fi
+            }
+
+            systemd_edit 'libvirtd.socket'    "$libvirt_unix_group" "$libvirt_unix_rw_perms"
+            systemd_edit 'libvirtd-ro.socket' "$libvirt_unix_group" "$libvirt_unix_ro_perms"
+
+            unset -f systemd_edit
         fi
     fi
 }
