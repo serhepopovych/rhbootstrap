@@ -3881,12 +3881,25 @@ config_sshd()
 {
     local file="$install_root/etc/ssh/sshd_config"
     if [ -f "$file" ]; then
-        sed -i "$file" \
-            -e '/^#\?LoginGraceTime/iAllowGroups root users' \
-            -e 's/^#\?\(PermitRootLogin\s\+\).*$/\1without-password/' \
-            -e 's/^#\?\(UseDNS\s\+\).*$/\1no/' \
-            -e 's/^#\?\(VersionAddendum\s\+\).*$/\1none/' \
-            #
+        local dir="$file.d"
+        if [ -d "$dir" ] &&
+           grep -q "^\s*Include\s*${dir#$install_root}/\*\.conf" "$file"
+        then
+            file="$dir/99-${this_prog%.sh}.conf"
+            cat >"$file" <<'_EOF'
+AllowGroups root users
+PermitRootLogin prohibit-password
+UseDNS no
+VersionAddendum none
+_EOF
+        else
+            sed -i "$file" \
+                -e '/^#\?LoginGraceTime/iAllowGroups root users' \
+                -e 's/^#\?\(PermitRootLogin\s\+\).*$/\1without-password/' \
+                -e 's/^#\?\(UseDNS\s\+\).*$/\1no/' \
+                -e 's/^#\?\(VersionAddendum\s\+\).*$/\1none/' \
+                #
+        fi
     fi
 }
 
@@ -4033,6 +4046,11 @@ EOF
 
         local keys='/etc/ssh/authorized_keys'
         install -d -m 0751 "$install_root$keys"
+
+        local dir="$file.d"
+        if [ -d "$dir" ]; then
+            file="$dir/99-${this_prog%.sh}.conf"
+        fi
 
         cat >>"$file" <<EOF
 
