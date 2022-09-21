@@ -7058,6 +7058,7 @@ if [ -n "${pkg_plymouth-}" ]; then
         PKGS="$PKGS plymouth-plugin-two-step"
 
     # plymouth-system-theme
+    pkg_enable plymouth_system_theme
     [ -z "${pkg_plymouth_system_theme-}" ] ||
         PKGS="$PKGS plymouth-system-theme"
     # plymouth-theme-charge
