@@ -5585,6 +5585,13 @@ GRUB_ENABLE_BLSCFG=true
 _EOF
             fi
 
+            # Disable BLS config type: it is unclear how to update
+            # kernel command line options with it:
+            # https://bugzilla.redhat.com/show_bug.cgi?id=2032680
+            sed -i "$t" \
+                -e 's,^\(GRUB_ENABLE_BLSCFG\)=.*$,\1=false,g' \
+                #
+
             # Add "zswap.enabled=1" to kernel command line options list
             if [ -n "$zswap_enabled" ]; then
                 $(
