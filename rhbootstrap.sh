@@ -5627,6 +5627,43 @@ _EOF
                     fi
                 )
             fi
+
+            # Add "quiet", "rhgb" and remove "nomodeset" to/from
+            # kernel command line options list if plymouth enabled
+            if [ -n "${pkg_plymouth-}" ]; then
+                $(
+                    # Source in subshell to not pollute environment
+                    . "$t"
+
+                    opts=''
+
+                    for o in \
+                        'rhgb' \
+                        'quiet' \
+                        #
+                    do
+                        if v="${GRUB_CMDLINE_LINUX-}" &&
+                           [ "${v##*${o}*}" = "$v" ] &&
+                           v="${GRUB_CMDLINE_LINUX_DEFAULT-}" &&
+                           [ "${v##*${o}*}" = "$v" ]
+                        then
+                            opts="${opts:+$opts }${o}"
+                        fi
+                    done
+
+                    if [ -n "$opts" ]; then
+                        cat >>"$t" <<_EOF
+GRUB_CMDLINE_LINUX="\${GRUB_CMDLINE_LINUX-} ${opts}"
+_EOF
+                    fi
+                )
+
+                # Remove "nomodeset"
+                sed -i "$t" \
+                    -e '/^GRUB_CMDLINE_LINUX=/!b' \
+                    -e 's,\( \)*nomodeset\( \)*,\1\2,g' \
+                    #
+            fi
         fi
         # Add helper that generates terminfo commands for serial
         config_grub_05_serial_terminfo
