@@ -25,7 +25,7 @@
 # Requires: mountpoint(1), chroot(1), find(1), xargs(1), install(1), head(1),
 #           sed(1), mv(1), rm(1), ln(1), cat(1), rpm(1), yum(1), curl(1), id(1),
 #           uname(1), mount(8), umount(8), setarch(8), chmod(1), mktemp(1),
-#           base64(1), tr(1), date(1), timeout(1)
+#           base64(1), tr(1), date(1), timeout(1), tee(1)
 
 # Set option(s)
 set -e
