@@ -1,12 +1,12 @@
-Utility to bootstrap RHEL/CentOS system
-=======================================
+Utility to bootstrap RHEL/CentOS/Rocky system
+====================================================
 
 On Debian/Ubuntu there is debootstrap(8) utility that takes number of
 parameters and installs packages for selected release to given directory
 that later can be used as base system (chroot) for multiple purposes
 (e.g. containers, NFS root, etc).
 
-There is no known (at least to me) similar tool for RHEL/CentOS systems.
+There is no known (at least to me) similar tool for RHEL/CentOS/Rocky systems.
 
 This utility tries to fill this gap and provide similar functionality
 to debootstrap(8) with some useful extra features.
@@ -16,11 +16,12 @@ Features
 
   o Bootstrap packages to given directory based on provided information
   o Minimal installation support
-  o RHEL/CentOS 7 and 8
+  o RHEL/CentOS/Rocky 7, 8 and 9 (including -stream) support
   o Install packages and configure current system if no directory given
   o Profiles support to select options, package groups and packages
   o Preconfigured profiles for
-    - desktop (XFCE, MATE on RHEL/CentOS 7 only, lightdm/sddm as DM)
+    - Xorg, Xspice, Xrdp and x2go as X11 servers
+    - XFCE and MATE as desktop environment, lightdm/sddm as DM
     - hypervisor host (libvirt + KVM, libvirt + XEN on CentOS 7 only)
     - text full (command line utilities and tools)
   o Options to apply specific tuning
@@ -46,8 +47,8 @@ Features
 Requirements
 ------------
 
-Build host requires RHEL/CentOS 7 or 8, POSIX-like shell (e.g. bash
-or dash) and set of common utilities (e.g. sed, ln, rm, etc) listed
+Build host requires RHEL/CentOS/Rocky 8 and above, POSIX-like shell (e.g.
+bash or dash) and set of common utilities (e.g. sed, ln, rm, etc) listed
 in Requires: tag in utility.
 
 Usage
@@ -58,8 +59,8 @@ Options and their defaults:
     --arch=x86_64
         System processor (CPU) architecture to install packages for.
         Only AMD64 (x86_64) supported at the moment
-    --releasever=7
-        Supported CentOS release version
+    --releasever=9
+        Supported RHEL/CentOS/Rocky release version
 
     --install-langs=<all>
         (rpm) install localization files for given languages (e.g. 'en:ru:uk')
