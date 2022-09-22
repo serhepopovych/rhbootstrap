@@ -4201,9 +4201,46 @@ config_readonly_root()
     fi
 }
 
-# Usage: config_grub_20_ipxe
-config_grub_20_ipxe()
+# Usage: config_grub_ipxe
+config_grub_ipxe()
 {
+    if [ -n "${pkg_ipxe_bootimgs-}" ]; then
+        copy_ipxe_file()
+        {
+            local func="${FUNCNAME:-copy_ipxe_file}"
+
+            local ipxe="${1:?missing 1st argument to ${func}() (boot_ipxe)}"
+            local ipxe_name="${2:-$ipxe}"
+            local ipxe_iter
+
+            for ipxe_iter in \
+                "$install_root/usr/share/ipxe/$ipxe" \
+                "$install_root/usr/lib/ipxe/$ipxe" \
+                #
+            do
+                if [ -f "$ipxe_iter" ]; then
+                    install -D -m 0644 \
+                        "$ipxe_iter" "$install_root/boot/$ipxe_name"
+                    return
+                fi
+            done
+
+            return 1
+        }
+
+        if ! copy_ipxe_file 'ipxe.efi'; then
+            if [ -n "$grp_efi_ia32" ]; then
+                copy_ipxe_file 'ipxe-i386.efi' 'ipxe.efi'
+            else
+                copy_ipxe_file 'ipxe-x86_64.efi' 'ipxe.efi'
+            fi
+        fi
+        copy_ipxe_file 'ipxe.lkrn'
+
+        unset -f copy_ipxe_file
+    fi
+
+    # Add helper that generates boot menu entries for iPXE
     local unpack_dir="$install_root"
 # md5(20_ipxe.tgz.b64) = 3b7d80ce1ef0d10d274beaffb7335918
 [ -d "$unpack_dir" ] || install -d "$unpack_dir"
@@ -4221,9 +4258,121 @@ CCGEEEIIIYQQQgghhBBCCCGEEELIg/oK2ED29AAoAAA=
 20_ipxe.tgz.b64
 }
 
-# Usage: config_grub_05_serial_terminfo
-config_grub_05_serial_terminfo()
+# Usage: config_grub_serial
+config_grub_serial()
 {
+    # Enable serial line console
+    if [ -n "$serial_console" ]; then
+        t="$install_root/etc/default/grub"
+
+        local serial
+        eval $(
+            # From grub-installer udeb (Debian)
+            get_serial_console()
+            {
+                local serial=
+
+                # Get the last 'console=' entry (if none,
+                # the whole string is returned)
+                while [ $# -gt 0 ]; do
+                    case "$1" in
+                        console=ttyS*|console=ttyUSB*|console=com*)
+                            serial="$1" ;;
+                    esac
+                    shift
+                done
+
+                if [ -n "$serial" ]; then
+                    echo "$serial"
+                fi
+            }
+
+            grub_serial_console()
+            {
+                local serconsole="$1"
+                serconsole="${serconsole##console=ttyS}"
+                serconsole="${serconsole##console=com}"
+                local unit="${serconsole%%,*}"
+                local speed parity word
+                local options="${serconsole##*,}"
+
+                if [ -z "$unit" ]; then
+                    return
+                fi
+                if [ "$unit" != "$options" ]; then
+                    # Take optional 1st (parity) and 2nd (word) characters after speed
+                    set -- `echo "$options" | sed -e 's,^\([0-9]*\)\(.\?\)\(.\?\).*$,\1 \2 \3,'`
+                    speed="$1"
+                    parity="$2"
+                    word="$3"
+                else
+                    speed=''
+                    parity=''
+                    word=''
+                fi
+                [ -n "$speed" ] || speed='115200'
+                case "$parity" in
+                    n) parity='--parity=no'   ;;
+                    e) parity='--parity=even' ;;
+                    o) parity='--parity=odd'  ;;
+                    *) parity=''              ;;
+                esac
+                [ -z "$word" ] || word="--word=$word"
+
+                echo "serial --unit=$unit --speed=$speed $word $parity --stop=1"
+            }
+
+            # Hide stdout to /dev/null prevent evaluation
+            # of potential output from sourced file.
+            exec 3>&1 >/dev/null
+
+            . "$t"
+
+            exec >&3 3>&-
+
+            grub_cmdline_linux_append=1
+
+            if [ "$serial_console" = '1' ]; then
+                serial_console="$(get_serial_console ${GRUB_CMDLINE_LINUX-})"
+                grub_cmdline_linux_append=''
+            fi
+
+            serial="$(grub_serial_console "$serial_console")"
+            if [ -z "$serial" ]; then
+                # From grub-efi.cfg (Debian)
+                serial_console="${_serial_console}"
+                serial="$(grub_serial_console "$serial_console")"
+                grub_cmdline_linux_append=1
+            fi
+            echo "serial_console='$serial_console'"
+            echo "serial='$serial'"
+
+            if [ -n "$grub_cmdline_linux_append" ]; then
+                echo "GRUB_CMDLINE_LINUX=\"\${GRUB_CMDLINE_LINUX-} $serial_console\"" >>"$t"
+            fi
+        )
+
+        if grep -q '^GRUB_TERMINAL=' "$t"; then
+            # it is set by installer or by default in config
+            sed -i "$t" -e "s,^\(GRUB_TERMINAL\)=.*,\1=\"serial console\",g"
+        else
+            echo "GRUB_TERMINAL=\"serial console\"" >> "$t"
+        fi
+
+        # Add serial command
+        if grep -q '^GRUB_SERIAL_COMMAND=' "$t"; then
+            # it is set by installer or by default in config
+            sed -i "$t" -e "s,^\(GRUB_SERIAL_COMMAND\)=.*,\1=\"$serial\",g"
+        else
+            echo "GRUB_SERIAL_COMMAND=\"$serial\"" >> "$t"
+        fi
+        if [ -n "$grp_efi" ]; then
+            # replace --unit=<u> with efi<u> on EFI systems to fix artifacts
+            sed -i "$t" -e '/^GRUB_SERIAL_COMMAND=/s,--unit=\([0-9]\+\),efi\1,g'
+        fi
+    fi
+
+    # Add helper that generates terminfo commands for serial
     local unpack_dir="$install_root"
 # md5(05_serial_terminfo.tgz.b64) = d58c2f772b23246e45ac80130284dc6f
 [ -d "$unpack_dir" ] || install -d "$unpack_dir"
@@ -5628,7 +5777,7 @@ _EOF
                 )
             fi
 
-            # Add "quiet", "rhgb" and remove "nomodeset" to/from
+            # Add "rhgb", "quiet" and remove "nomodeset" to/from
             # kernel command line options list if plymouth enabled
             if [ -n "${pkg_plymouth-}" ]; then
                 $(
@@ -5664,158 +5813,13 @@ _EOF
                     -e 's,\( \)*nomodeset\( \)*,\1\2,g' \
                     #
             fi
+
+            # Add support for iPXE on BIOS and EFI systems
+            config_grub_ipxe
+
+            # Add support for serial console
+            config_grub_serial
         fi
-        # Add helper that generates terminfo commands for serial
-        config_grub_05_serial_terminfo
-
-        # Add support for iPXE on BIOS and EFI systems
-        if [ -n "${pkg_ipxe_bootimgs-}" ]; then
-            copy_ipxe_file()
-            {
-                local func="${FUNCNAME:-copy_ipxe_file}"
-
-                local ipxe="${1:?missing 1st argument to ${func}() (boot_ipxe)}"
-                local ipxe_name="${2:-$ipxe}"
-                local ipxe_iter
-
-                for ipxe_iter in \
-                    "$install_root/usr/share/ipxe/$ipxe" \
-                    "$install_root/usr/lib/ipxe/$ipxe" \
-                    #
-                do
-                    if [ -f "$ipxe_iter" ]; then
-                        install -D -m 0644 \
-                            "$ipxe_iter" "$install_root/boot/$ipxe_name"
-                        return
-                    fi
-                done
-
-                return 1
-            }
-
-            if ! copy_ipxe_file 'ipxe.efi'; then
-                if [ -n "$grp_efi_ia32" ]; then
-                    copy_ipxe_file 'ipxe-i386.efi' 'ipxe.efi'
-                else
-                    copy_ipxe_file 'ipxe-x86_64.efi' 'ipxe.efi'
-                fi
-            fi
-            copy_ipxe_file 'ipxe.lkrn'
-        fi
-        # Add helper that generates boot menu entries for iPXE
-        config_grub_20_ipxe
-
-        # Enable serial line console
-        if [ -n "${pkg_grub2-}" -a -n "$serial_console" ]; then
-            # From grub-installer udeb (Debian)
-            get_serial_console()
-            {
-                local serial=
-
-                # Get the last 'console=' entry (if none,
-                # the whole string is returned)
-                while [ $# -gt 0 ]; do
-                    case "$1" in
-                        console=ttyS*|console=ttyUSB*|console=com*)
-                            serial="$1" ;;
-                    esac
-                    shift
-                done
-
-                if [ -n "$serial" ]; then
-                     echo "$serial"
-                fi
-            }
-
-            grub_serial_console()
-            {
-                local serconsole="$1"
-                serconsole="${serconsole##console=ttyS}"
-                serconsole="${serconsole##console=com}"
-                local unit="${serconsole%%,*}"
-                local speed parity word
-                local options="${serconsole##*,}"
-
-                if [ -z "$unit" ]; then
-                    return
-                fi
-                if [ "$unit" != "$options" ]; then
-                    # Take optional 1st (parity) and 2nd (word) characters after speed
-                    set -- `echo "$options" | sed -e 's,^\([0-9]*\)\(.\?\)\(.\?\).*$,\1 \2 \3,'`
-                    speed="$1"
-                    parity="$2"
-                    word="$3"
-                else
-                    speed=''
-                    parity=''
-                    word=''
-                fi
-                [ -n "$speed" ] || speed='115200'
-                case "$parity" in
-                    n) parity='--parity=no'   ;;
-                    e) parity='--parity=even' ;;
-                    o) parity='--parity=odd'  ;;
-                    *) parity=''              ;;
-                esac
-                [ -z "$word" ] || word="--word=$word"
-
-                echo "serial --unit=$unit --speed=$speed $word $parity --stop=1"
-            }
-
-            t="$install_root/etc/default/grub"
-
-            eval $(
-                # Hide stdout to /dev/null prevent evaluation
-                # of potential output from sourced file.
-                exec 3>&1 >/dev/null
-
-                . "$t"
-
-                exec >&3 3>&-
-
-                grub_cmdline_linux_append=1
-
-                if [ "$serial_console" = '1' ]; then
-                    serial_console="$(get_serial_console ${GRUB_CMDLINE_LINUX-})"
-                    grub_cmdline_linux_append=''
-                fi
-
-                serial="$(grub_serial_console "$serial_console")"
-                if [ -z "$serial" ]; then
-                    # From grub-efi.cfg (Debian)
-                    serial_console="${_serial_console}"
-                    serial="$(grub_serial_console "$serial_console")"
-                    grub_cmdline_linux_append=1
-                fi
-                echo "serial_console='$serial_console'"
-                echo "serial='$serial'"
-
-                if [ -n "$grub_cmdline_linux_append" ]; then
-                    echo "GRUB_CMDLINE_LINUX=\"\${GRUB_CMDLINE_LINUX-} $serial_console\"" >>"$t"
-                fi
-            )
-
-            if grep -q '^GRUB_TERMINAL=' "$t"; then
-                # it is set by installer or by default in config
-                sed -i "$t" -e "s,^\(GRUB_TERMINAL\)=.*,\1=\"serial console\",g"
-            else
-                echo "GRUB_TERMINAL=\"serial console\"" >> "$t"
-            fi
-
-            # Add serial command
-            if grep -q '^GRUB_SERIAL_COMMAND=' "$t"; then
-                # it is set by installer or by default in config
-                sed -i "$t" -e "s,^\(GRUB_SERIAL_COMMAND\)=.*,\1=\"$serial\",g"
-            else
-                echo "GRUB_SERIAL_COMMAND=\"$serial\"" >> "$t"
-            fi
-            if [ -n "$grp_efi" ]; then
-                # replace --unit=<u> with efi<u> on EFI systems to fix artifacts
-                sed -i "$t" -e '/^GRUB_SERIAL_COMMAND=/s,--unit=\([0-9]\+\),efi\1,g'
-            fi
-
-            unset serial
-        fi # [ -n "${pkg_grub2-}" -a -n "$serial_console" ]
 
         # Configure login banners
         if [ -n "$login_banners" ]; then
