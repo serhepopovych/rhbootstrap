@@ -4348,6 +4348,11 @@ config_grub_serial()
             echo "serial='$serial'"
 
             if [ -n "$grub_cmdline_linux_append" ]; then
+                # Remove "console=..."
+                sed -i "$t" \
+                    -e '/^GRUB_CMDLINE_LINUX=/!b' \
+                    -e "s,\( \)*console=[^\"'[:space:]]\+\( \)*,\1\2,g" \
+                    #
                 echo "GRUB_CMDLINE_LINUX=\"\${GRUB_CMDLINE_LINUX-} $serial_console\"" >>"$t"
             fi
         )
@@ -5819,6 +5824,34 @@ _EOF
 
             # Add support for serial console
             config_grub_serial
+
+            # Normalize kernel command line
+            $(
+                # Source in subshell to not pollute environment
+                . "$t"
+
+                {
+                    # <begin>
+                    # GRUB_CMDLINE_LINUX=...
+                    sed "$t" \
+                        -e '/^GRUB_CMDLINE_LINUX=/q' \
+                        #
+                    # <end>
+                    sed "$t" \
+                        -n \
+                        -e '/^GRUB_CMDLINE_LINUX=/,$ {/^GRUB_CMDLINE_LINUX=/d; p}' \
+                        #
+                } | {
+                     sed \
+                        -e '/^GRUB_CMDLINE_LINUX=/!b' \
+                        -e "s,.*,GRUB_CMDLINE_LINUX=\"${GRUB_CMDLINE_LINUX-}\"," \
+                        -e 's,\s\+, ,g' \
+                        -e "s,\([\"']\)\s*,\1,g" \
+                        -e "s,\s*\(['\"]\),\1,g" \
+                        #
+                } >"$t.$$"
+                mv -f "$t.$$" "$t"
+            )
         fi
 
         # Configure login banners
