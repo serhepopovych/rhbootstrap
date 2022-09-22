@@ -315,6 +315,85 @@ in_chroot_gpg_import()
     in_chroot <"$gpgkey" "$install_root" "rpm --import '/dev/stdin'" || return
 }
 
+# Usage: systemctl_edit <systemd.unit> [<file|fd>] [-- UNIT...]
+systemctl_edit()
+{
+    local func="${FUNCNAME:-systemctl_edit}"
+
+    local file=''
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --) # systemctl edit UNIT...
+                shift
+                break
+                ;;
+             *) # file name or descriptor
+                if [ -n "$file" ]; then
+                    echo >&2 "${func}: expected argument delimiter (--)"
+                    return 1
+                fi
+                file="${1:-0}"
+                shift
+                ;;
+        esac
+    done
+    file="${file:-0}"
+
+    # systemd-run(1) isn't available: cannot run "systemctl edit ..."
+    # since it requires stdout and stderr to be valid TTY.
+    #
+    # See https://github.com/systemd/systemd/issues/21862 for details
+    # of systemd.unit override creation from scripts.
+    in_chroot "$install_root" \
+        'command -v systemd-run >/dev/null 2>&1' ||
+    return
+
+    (
+        if [ -n "${file##*[^0-9&]*}" -a -n "${file##[0-9&]*&*}" ]; then
+            fd="${file#&}" && fd="${fd:-0}"
+
+            file="$(mktemp --dry-run --tmpdir "$func.XXXXXXXX")" &&
+                mkfifo -m 0600 "$file" ||
+            exit
+
+            # This is main reason for putting entire block in subshell:
+            # traps are reset in subshell.
+            trap 'rm -f "$file"' EXIT INT TERM QUIT
+        else
+            fd=''
+        fi
+
+        # Executed asynchronously if $file was originally file descriptor
+        in_chroot "$install_root" \
+            "exec >/dev/null 2>&1 </dev/null systemd-run \"\$@\" ${fd:+&}" - \
+                --quiet \
+                --pty \
+                --wait \
+                --collect \
+                --service-type='exec' \
+                --setenv=SYSTEMD_EDITOR='tee' \
+                -- \
+            /bin/sh -c "exec <'$file' systemctl edit \"\$@\"" \
+                - \
+                "$@" \
+                #
+
+        if [ -n "$fd" ]; then
+            # Use tee(1) backed by timeout(1) instead of direct
+            # append (>>) by a shell interpreter to avoid block on
+            # write when $file is named pipe (fifo) and process on
+            # other side (e.g. systemd-run(1), tee(1) or systemctl)
+            # does not send EOF (e.g. exited due to error).
+            #
+            # Note that it is up to the caller to provide output on
+            # $fd to avoid blocking on read.
+            while read -r line; do
+                printf -- '%s\n' "$line"
+            done <&"$fd" | timeout 5 tee --append "$file" >/dev/null 2>&1
+        fi
+    ) || return
+}
+
 # Usage: return_var() <rc> <result> [<var>]
 return_var()
 {
@@ -4009,98 +4088,17 @@ config_libvirt()
         fi
 
         if grep -q 'SocketMode=' "$install_root/etc/libvirt/libvirtd.conf"; then
-            # Usage: systemd_edit <systemd.unit> [<file|fd>] [-- UNIT...]
-            systemd_edit()
-            {
-                local func="${FUNCNAME:-systemd_edit}"
-
-                local file=''
-                while [ $# -gt 0 ]; do
-                    case "$1" in
-                        --) # systemctl edit UNIT...
-                            shift
-                            break
-                            ;;
-                         *) # file name or descriptor
-                            if [ -n "$file" ]; then
-                                echo >&2 "${func}: expected argument delimiter (--)"
-                                return 1
-                            fi
-                            file="${1:-0}"
-                            shift
-                            ;;
-                    esac
-                done
-                file="${file:-0}"
-
-                # systemd-run(1) isn't available: cannot run "systemctl edit ..."
-                # since it requires stdout and stderr to be valid TTY.
-                #
-                # See https://github.com/systemd/systemd/issues/21862 for details
-                # of systemd.unit override creation from scripts.
-                in_chroot "$install_root" \
-                    'command -v systemd-run >/dev/null 2>&1' ||
-                return
-
-                (
-                    if [ -n "${file##*[^0-9&]*}" -a -n "${file##[0-9&]*&*}" ]; then
-                        fd="${file#&}" && fd="${fd:-0}"
-
-                        file="$(mktemp --dry-run --tmpdir "$func.XXXXXXXX")" &&
-                            mkfifo -m 0600 "$file" ||
-                        exit
-
-                        # This is main reason for putting entire block in subshell:
-                        # traps are reset in subshell.
-                        trap 'rm -f "$file"' EXIT INT TERM QUIT
-                    else
-                        fd=''
-                    fi
-
-                    # Executed asynchronously if $file was originally file descriptor
-                    in_chroot "$install_root" \
-                        "exec >/dev/null 2>&1 </dev/null systemd-run \"\$@\" ${fd:+&}" - \
-                            --quiet \
-                            --pty \
-                            --wait \
-                            --collect \
-                            --service-type='exec' \
-                            --setenv=SYSTEMD_EDITOR='tee' \
-                            -- \
-                        /bin/sh -c "exec <'$file' systemctl edit \"\$@\"" \
-                            - \
-                            "$@" \
-                            #
-
-                    if [ -n "$fd" ]; then
-                        # Use tee(1) backed by timeout(1) instead of direct
-                        # append (>>) by a shell interpreter to avoid block on
-                        # write when $file is named pipe (fifo) and process on
-                        # other side (e.g. systemd-run(1), tee(1) or systemctl)
-                        # does not send EOF (e.g. exited due to error).
-                        #
-                        # Note that it is up to the caller to provide output on
-                        # $fd to avoid blocking on read.
-                        while read -r line; do
-                            printf -- '%s\n' "$line"
-                        done <&"$fd" | timeout 5 tee --append "$file" >/dev/null 2>&1
-                    fi
-                ) || return
-            }
-
-            systemd_edit -- 'libvirtd.socket' <<EOF
+            systemctl_edit -- 'libvirtd.socket' <<EOF
 [Socket]
 ${libvirt_unix_group:+SocketGroup=$libvirt_unix_group}
 ${libvirt_unix_rw_perms:+SocketMode=$libvirt_unix_rw_perms}
 EOF
 
-            systemd_edit -- 'libvirtd-ro.socket' <<EOF
+            systemctl_edit -- 'libvirtd-ro.socket' <<EOF
 [Socket]
 ${libvirt_unix_group:+SocketGroup=$libvirt_unix_group}
 ${libvirt_unix_rw_perms:+SocketMode=$libvirt_unix_ro_perms}
 EOF
-
-            unset -f systemd_edit
         fi
     fi
 }
