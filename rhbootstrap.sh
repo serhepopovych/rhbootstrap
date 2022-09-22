@@ -4892,6 +4892,20 @@ rsync-wrapper.tgz.b64
     unset -f make_xdg_dirs mc_ini screenrc xfce4 ssh_agent_start4bashrc
 }
 
+# Usage: config_flatpak
+config_flatpak()
+{
+    if [ -n "${pkg_flatpak-}" ] &&
+       in_chroot "$install_root" 'command -v flatpak >/dev/null 2>&1'
+    then
+        in_chroot "$install_root" \
+            'flatpak remote-add --if-not-exists \
+                flathub \
+                https://flathub.org/repo/flathub.flatpakrepo' \
+                #
+    fi
+}
+
 # Usage: config_autopass
 config_autopass()
 {
@@ -6030,6 +6044,9 @@ _EOF
 
         # Provide user configuration for applications
         config_user_apps
+
+        # Configure flatpak repositories
+        config_flatpak
 
         # Termiate bash after given seconds of inactivity (auto-logout)
         if [ -x '/bin/bash' ]; then
@@ -8206,6 +8223,9 @@ if [ -n "${has_de-}" ]; then
            [ -z "${pkg_wireshark_gnome-}" ] || PKGS="$PKGS wireshark-gnome"
        fi
     fi
+
+    # flatpak
+    [ -z "${pkg_flatpak-}" ] || PKGS="$PKGS flatpak"
 fi # [ -n "${has_de-}" ]
 
 ## ALSA
