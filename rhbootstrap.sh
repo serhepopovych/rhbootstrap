@@ -3955,6 +3955,60 @@ LlX4jf3HI9vPbI/H4/F4PB6Px+PxeDwej8fj8Xg8Ho/nV+AL5bEV4gAoAAA=
 xorg.tgz.b64
 }
 
+# Usage: config_xrdp
+config_xrdp()
+{
+    local dir="$install_root/etc/xrdp"
+    if [ -d "$dir" ]; then
+        local file
+
+        # Force security layer to tls,
+        # uncomment [Xorg] section for xrdp
+        # comment [Xvnc] section
+        file="$dir/xrdp.ini"
+        if [ -f "$file" ]; then
+            sed -i "$file" \
+                -e 's,^\(security_layer\)=.\+$,\1=tls,g' \
+                -e '/^#\[Xorg\]$/,/^\[Xvnc\]$/s,^#,,' \
+                -e '/^\[Xvnc\]$/,/^port=-1$/s,^,#,' \
+                #
+        fi
+
+        # Add Ukrainian keyboard and configure layout change
+        # using Left_Ctrl+Left_Win sequence
+        file="$dir/xrdp_keyboard.ini"
+        if [ -f "$file" ] &&
+           ! grep -q '^\[rdp_keyboard_ua\]$' "$file"
+        then
+            cat >>"$file" <<'_EOF'
+
+[rdp_keyboard_ua]
+keyboard_type=4
+keyboard_subtype=1
+model=pc104
+variant=us
+options=grp:lctrl_lwin_toggle
+rdp_layouts=default_rdp_layouts
+layouts_map=layouts_map_ch
+
+[layouts_map_ch]
+rdp_layout_us=us,ru,ua
+rdp_layout_ru=us,ru,ua
+rdp_layout_ua=us,ru,ua
+_EOF
+        fi
+
+        # Keep opened sessions when xrdp.service stopped or
+        # restarted what is quite common on package upgrade.
+        systemctl cat 'xrdp-sesman.service' | \
+            sed -e '/^\(BindsTo\|StopWhenUnneeded\)=/d' | \
+        systemctl_edit -- --full 'xrdp-sesman.service'
+
+        in_chroot "$install_root" 'systemctl enable xrdp.service'
+        in_chroot "$install_root" 'systemctl enable xrdp-sesman.service'
+    fi
+}
+
 # Usage: config_sshd
 config_sshd()
 {
@@ -5879,10 +5933,15 @@ _EOF
         # Configure networking
         config_network
 
-        # Configure Xorg server
-        if [ "${x11_server-}" = 'Xorg' ]; then
-            config_xorg
-        fi
+        # Configure X11 server
+        case "${x11_server-}" in
+            'Xorg')
+                config_xorg
+                ;;
+            'Xrdp')
+                config_xrdp
+                ;;
+        esac
 
         # Configure openssh-server
         config_sshd
@@ -7811,6 +7870,10 @@ if [ -n "${has_de-}" ]; then
         'Xspice')
             # Will install xorg-x11-server-Xorg as dependency
             PKGS="$PKGS xorg-x11-server-Xspice"
+            ;;
+        'Xrdp')
+            # Will install xorg-x11-server-Xorg as dependency
+            PKGS="$PKGS xrdp xrdp-selinux xorgxrdp"
             ;;
         'x2go')
             # x2goserver
