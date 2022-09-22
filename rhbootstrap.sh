@@ -4009,13 +4009,29 @@ config_libvirt()
         fi
 
         if grep -q 'SocketMode=' "$install_root/etc/libvirt/libvirtd.conf"; then
-            # Usage: systemd_edit <systemd.unit> [<file|fd>]
+            # Usage: systemd_edit <systemd.unit> [<file|fd>] [-- UNIT...]
             systemd_edit()
             {
                 local func="${FUNCNAME:-systemd_edit}"
 
-                local unit="${1:?missing 1st arg to ${func}() <systemd.unit>}"
-                local file="${2:-0}"
+                local file=''
+                while [ $# -gt 0 ]; do
+                    case "$1" in
+                        --) # systemctl edit UNIT...
+                            shift
+                            break
+                            ;;
+                         *) # file name or descriptor
+                            if [ -n "$file" ]; then
+                                echo >&2 "${func}: expected argument delimiter (--)"
+                                return 1
+                            fi
+                            file="${1:-0}"
+                            shift
+                            ;;
+                    esac
+                done
+                file="${file:-0}"
 
                 # systemd-run(1) isn't available: cannot run "systemctl edit ..."
                 # since it requires stdout and stderr to be valid TTY.
@@ -4051,7 +4067,10 @@ config_libvirt()
                             --service-type='exec' \
                             --setenv=SYSTEMD_EDITOR='tee' \
                             -- \
-                        /bin/sh -c "exec <'$file' systemctl edit '$unit'"
+                        /bin/sh -c "exec <'$file' systemctl edit \"\$@\"" \
+                            - \
+                            "$@" \
+                            #
 
                     if [ -n "$fd" ]; then
                         # Use tee(1) backed by timeout(1) instead of direct
@@ -4069,13 +4088,13 @@ config_libvirt()
                 ) || return
             }
 
-            systemd_edit 'libvirtd.socket' <<EOF
+            systemd_edit -- 'libvirtd.socket' <<EOF
 [Socket]
 ${libvirt_unix_group:+SocketGroup=$libvirt_unix_group}
 ${libvirt_unix_rw_perms:+SocketMode=$libvirt_unix_rw_perms}
 EOF
 
-            systemd_edit 'libvirtd-ro.socket' <<EOF
+            systemd_edit -- 'libvirtd-ro.socket' <<EOF
 [Socket]
 ${libvirt_unix_group:+SocketGroup=$libvirt_unix_group}
 ${libvirt_unix_rw_perms:+SocketMode=$libvirt_unix_ro_perms}
