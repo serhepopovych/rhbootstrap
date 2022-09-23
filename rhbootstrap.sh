@@ -349,18 +349,24 @@ systemctl_edit()
     return
 
     (
+        # Note that file given by it's name must exist inside $install_root
         if [ -n "${file##*[^0-9&]*}" -a -n "${file##[0-9&]*&*}" ]; then
             fd="${file#&}" && fd="${fd:-0}"
 
-            file="$(mktemp --dry-run --tmpdir "$func.XXXXXXXX")" &&
-                mkfifo -m 0600 "$file" ||
-            exit
+            file="$(
+                mktemp --dry-run --tmpdir="${install_root}tmp" "$func.XXXXXXXX"
+            )" && mkfifo -m 0600 "$file" || exit
 
             # This is main reason for putting entire block in subshell:
             # traps are reset in subshell.
             trap 'rm -f "$file"' EXIT INT TERM QUIT
         else
             fd=''
+
+            file="${file#$install_root}"
+            file="${install_root}${file#/}"
+
+            [ -e "$file" ] || exit
         fi
 
         # Executed asynchronously if $file was originally file descriptor
@@ -373,7 +379,7 @@ systemctl_edit()
                 --service-type='exec' \
                 --setenv=SYSTEMD_EDITOR='tee' \
                 -- \
-            /bin/sh -c "exec <'$file' systemctl edit \"\$@\"" \
+            /bin/sh -c "exec <'/${file#$install_root}' systemctl edit \"\$@\"" \
                 - \
                 "$@" \
                 #
