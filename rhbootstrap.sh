@@ -319,6 +319,110 @@ in_chroot_gpg_import()
     in_chroot <"$gpgkey" "$install_root" "rpm --import '/dev/stdin'" || return
 }
 
+# Usage: selinuxenabled
+selinuxenabled()
+{
+    in_chroot "$install_root" '
+        {
+            # libselinux-utils
+            command -v selinuxenabled || exit 3
+            # SELinux enabled
+            selinuxenabled || exit 2
+        } >/dev/null 2>&1
+    ' || return
+}
+
+# Usage: semode_text2rc <mode>
+semode_text2rc()
+{
+    case "${1-}" in
+        '0'|'Permissive')
+            return 0
+            ;;
+        '1'|'Enforcing')
+            return 1
+            ;;
+        *)
+            local func="${FUNCNAME:-semode_text2rc}"
+            echo >&2 "${func}: invalid <mode>, see setenforce(8) for valid modes"
+            return 2
+            ;;
+    esac
+}
+
+# Usage: _setenforce <mode>
+_setenforce()
+{
+    in_chroot "$install_root" '
+        {
+            # libselinux-utils
+            command -v setenforce || exit 3
+            # Set mode
+            setenforce "$1"
+        } >/dev/null 2>&1
+    ' - "$1" || return
+}
+
+# Usage: setenforce <mode>
+setenforce()
+{
+    local mode="${1-2}"
+
+    semode_text2rc "$mode" && mode=0 || mode=$?
+    [ $mode -le 2 ] || return 2
+
+    _setenforce $mode
+}
+
+# Usage: getenforce
+getenforce()
+{
+    local mode
+    mode="$(
+        in_chroot "$install_root" '
+            {
+                # libselinux-utils
+                command -v getenforce >&2 || exit 3
+                # Get mode
+                getenforce
+            } 2>/dev/null
+        '
+    )" && semode_text2rc "$mode" || return
+}
+
+# Usage: selinux_enforce()
+selinux_enforce()    { setenforce 1 || return; }
+# Usage: selinux_permissive()
+selinux_permissive() { setenforce 0 || return; }
+
+# Usage: setenforce_save <mode>
+setenforce_save()
+{
+    local mode=${__selinux_saved_mode__-2}
+    [ $mode -ge 2 ] || return 123
+
+    semode_text2rc "${1-}" && mode=0 || mode=$?
+    [ $mode -lt 2 ] || return 2
+
+    local rc=0
+    getenforce || rc=$?
+
+    __selinux_saved_mode__=$rc
+
+    [ $mode -eq $rc ] || _setenforce $mode || return
+}
+
+# Usage: setenforce_restore
+setenforce_restore()
+{
+    local mode=${__selinux_saved_mode__-2}
+    [ $mode -lt 2 ] || return 123
+
+    unset __selinux_saved_mode__
+
+    _setenforce $mode || return
+}
+
 # Usage: systemctl_edit <systemd.unit> [<file|fd>] [-- UNIT...]
 systemctl_edit()
 {
@@ -360,10 +464,6 @@ systemctl_edit()
             file="$(
                 mktemp --dry-run --tmpdir="${install_root}tmp" "$func.XXXXXXXX"
             )" && mkfifo -m 0600 "$file" || exit
-
-            # This is main reason for putting entire block in subshell:
-            # traps are reset in subshell.
-            trap 'rm -f "$file"' EXIT INT TERM QUIT
         else
             fd=''
 
@@ -372,6 +472,18 @@ systemctl_edit()
 
             [ -e "$file" ] || exit
         fi
+
+        # No SELinux policy for systemctl(1) supervised by systemd-run(1)
+        setenforce_save 'Permissive'
+
+        # This is main reason for putting entire block in subshell:
+        # traps are reset in subshell.
+        trap '
+            if [ -n "$fd" ]; then
+                rm -f "$file"
+            fi
+            setenforce_restore ||:
+        ' EXIT INT TERM QUIT
 
         # Executed asynchronously if $file was originally file descriptor
         in_chroot "$install_root" \
