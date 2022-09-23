@@ -30,6 +30,10 @@
 # Set option(s)
 set -e
 set -u
+
+# Enable debug/trace
+#exec 2>"/tmp/${0##*/}.debug.$(date '+%s.%N')"
+#set >&2
 #set -x
 
 this_prog='rhbootstrap.sh'
