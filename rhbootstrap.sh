@@ -641,7 +641,7 @@ distro_version()
     sed -n \
         -e '1 s/^CentOS\s\+Stream\s\+.\+\s\+\([0-9]\+\).*$/\1-stream/p' \
         -e '1 s/^\(Fedora\|CentOS\|Rocky\)\s\+.\+\s\+\([0-9.]\+\).*$/\2/p' \
-        "$root/etc/redhat-release" \
+        "${root%/}/etc/redhat-release" \
         #
 }
 
@@ -3732,11 +3732,11 @@ config_login_banners()
         PRETTY_NAME=''
 
         # Source in subshell to not pollute environment
-        t="$install_root/etc/os-release"
+        t="${install_root}etc/os-release"
         [ -f "$t" ] && . "$t" >/dev/null 2>&1 || PRETTY_NAME=''
 
         if [ -z "$PRETTY_NAME" ]; then
-            t="$install_root/etc/redhat-release"
+            t="${install_root}etc/redhat-release"
             PRETTY_NAME="$(
                 sed -n \
                     -e '1 s/^\(.\+\)\s\+release\s\+\(.*\)$/\1 \2/p' \
@@ -3749,7 +3749,7 @@ config_login_banners()
         fi
 
         # /etc/issue
-        banner="$install_root/etc/issue"
+        banner="${install_root}etc/issue"
         if [ -f "$banner" ]; then
             cat >"$banner" <<_EOF
 $PRETTY_NAME
@@ -3763,14 +3763,14 @@ _EOF
         fi
 
         # /etc/issue.net
-        banner="$install_root/etc/issue.net"
+        banner="${install_root}etc/issue.net"
         if [ -f "$banner" ]; then
             cat >"$banner" <<'_EOF'
 _EOF
         fi
 
         # /etc/motd
-        banner="$install_root/etc/motd"
+        banner="${install_root}etc/motd"
         if [ -f "$banner" ]; then
             cat >"$banner" <<'_EOF'
 _EOF
@@ -3810,7 +3810,7 @@ nm-devgroup.tgz.b64
         {
             echo '[main]'
             echo 'dns=dnsmasq'
-        } >>"$install_root/etc/NetworkManager/conf.d/dnsmasq.conf"
+        } >>"${install_root}etc/NetworkManager/conf.d/dnsmasq.conf"
     }
     nm_dnsmasq_split_2()
     {
@@ -3899,7 +3899,7 @@ dnsmasq.tgz.b64
     "nm_dnsmasq_split_${nm_dnsmasq_split:-0}"
 
     # Configure nameserver(s) in resolv.conf
-    local t="$install_root/etc/resolv.conf"
+    local t="${install_root}etc/resolv.conf"
     if [ -n "${nameservers}${install_root%/}" ]; then
         : >"$t"
     fi
@@ -3911,14 +3911,14 @@ dnsmasq.tgz.b64
     fi
 
     # Support for network device group in NetworkManager ifcfg-rh plugin
-    if [ -d "$install_root/etc/sysconfig/network-scripts" ]; then
+    if [ -d "${install_root}etc/sysconfig/network-scripts" ]; then
         if [ -n "${pkg_nm-}" ]; then
             nm_devgroup
         fi
     fi
 
     # Enable/disable legacy network scripts when no/ NetworkManager available
-    if [ -x "$install_root/etc/init.d/network" ]; then
+    if [ -x "${install_root}etc/init.d/network" ]; then
         if [ -z "${pkg_nm-}" ] ||
            rocky_version_ge $releasemaj 8 ||
            centos_version_gt $releasemaj 6 ||
@@ -3958,7 +3958,7 @@ xorg.tgz.b64
 # Usage: config_xrdp
 config_xrdp()
 {
-    local dir="$install_root/etc/xrdp"
+    local dir="${install_root}etc/xrdp"
     if [ -d "$dir" ]; then
         local file
 
@@ -4012,11 +4012,11 @@ _EOF
 # Usage: config_sshd
 config_sshd()
 {
-    local file="$install_root/etc/ssh/sshd_config"
+    local file="${install_root}etc/ssh/sshd_config"
     if [ -f "$file" ]; then
         local dir="$file.d"
         if [ -d "$dir" ] &&
-           grep -q "^\s*Include\s*${dir#$install_root}/\*\.conf" "$file"
+           grep -q "^\s*Include\s*/${dir#$install_root}/\*\.conf" "$file"
         then
             file="$dir/99-${this_prog%.sh}.conf"
             cat >"$file" <<'_EOF'
@@ -4040,7 +4040,7 @@ _EOF
 config_lvm2()
 {
     # Disable lvmetad to conform to CentOS 8+
-    local t="$install_root/etc/lvm/lvm.conf"
+    local t="${install_root}etc/lvm/lvm.conf"
     if [ -f "$t" ] && grep -q '^\s*use_lvmetad\s*=' "$t"; then
         sed -i "$t" \
             -e '/^\s*use_lvmetad\s*=\s*[0-9]\+\s*$/s/[0-9]/0/' \
@@ -4056,7 +4056,7 @@ config_lvm2()
 config_kvm()
 {
     # Enable/disable KVM nested virtualization
-    local t="$install_root/etc/modprobe.d/kvm.conf"
+    local t="${install_root}etc/modprobe.d/kvm.conf"
     if [ -f "$t" ]; then
         local r='s/^#\?\($n\)=[0-9]\+\(.*\)/\1=$v\4/'
         local r1
@@ -4079,7 +4079,7 @@ config_kvm()
 config_libvirt_qemu()
 {
     # Configure libvirt-daemon-driver-qemu
-    local t="$install_root/etc/libvirt/qemu.conf"
+    local t="${install_root}etc/libvirt/qemu.conf"
     if [ -f "$t" ]; then
         local r='s/^#\?\($n\s*=\s*\)\"\w*\"\(\s*\)/\1\"$v\"\3/'
         local r1
@@ -4100,7 +4100,7 @@ config_libvirt_qemu()
 config_libvirt()
 {
     # Configure libvirt-daemon
-    local t="$install_root/etc/libvirt/libvirtd.conf"
+    local t="${install_root}etc/libvirt/libvirtd.conf"
     if [ -f "$t" ]; then
         local r='s/^#\?\($n\s*=\s*\)\"\w*\"\(\s*\)/\1\"$v\"\2/'
         local r1 r2 r3 r4 r5
@@ -4141,7 +4141,7 @@ config_libvirt()
                 #
         fi
 
-        if grep -q 'SocketMode=' "$install_root/etc/libvirt/libvirtd.conf"; then
+        if grep -q 'SocketMode=' "${install_root}etc/libvirt/libvirtd.conf"; then
             systemctl_edit -- 'libvirtd.socket' <<EOF
 [Socket]
 ${libvirt_unix_group:+SocketGroup=$libvirt_unix_group}
@@ -4163,7 +4163,7 @@ config_virt_p2v()
     local user='virt-p2v'
 
     # Add sudoers(5) file
-    local t="$install_root/etc/sudoers.d"
+    local t="${install_root}etc/sudoers.d"
     if [ -d "$t" ]; then
         t="$t/$user"
         if [ ! -e "$t" ]; then
@@ -4187,12 +4187,13 @@ EOF
     fi
 
     # Configure sshd(8)
-    local file="$install_root/etc/ssh/sshd_config"
+    local file="${install_root}etc/ssh/sshd_config"
     if [ -f "$file" ]; then
         in_chroot "$install_root" "usermod -a -G users '$user'"
 
-        local keys='/etc/ssh/authorized_keys'
+        local keys='etc/ssh/authorized_keys'
         install -d -m 0751 "$install_root$keys"
+        keys="/$keys"
 
         local dir="$file.d"
         if [ -d "$dir" ]; then
@@ -4218,7 +4219,7 @@ config_readonly_root()
 
     # Make postfix readonly root aware
     if pkg_is_installed postfix; then
-        t="$install_root/etc/rwtab.d/postfix"
+        t="${install_root}etc/rwtab.d/postfix"
         [ -s "$t" ] || {
             echo 'dirs /var/lib/postfix'
         } >"$t"
@@ -4226,7 +4227,7 @@ config_readonly_root()
 
     # Make rsyslog readonly root aware
     if pkg_is_installed rsyslog; then
-        t="$install_root/etc/rwtab.d/rsyslog"
+        t="${install_root}etc/rwtab.d/rsyslog"
         [ -s "$t" ] || {
             echo 'dirs /var/lib/rsyslog'
         } >"$t"
@@ -4234,14 +4235,14 @@ config_readonly_root()
 
     # Make gssproxy readonly root aware
     if pkg_is_installed gssproxy; then
-        t="$install_root/etc/rwtab.d/gssproxy"
+        t="${install_root}etc/rwtab.d/gssproxy"
         [ -s "$t" ] || {
             echo 'dirs /var/lib/gssproxy'
         } >"$t"
     fi
 
     # Make /etc writable to update config files (mainly /etc/passwd)
-    t="$install_root/etc/rwtab.d/_etc"
+    t="${install_root}etc/rwtab.d/_etc"
     [ -s "$t" ] || {
         echo 'files /etc'
         # required by systemd-journal-catalog-update.service
@@ -4253,21 +4254,21 @@ config_readonly_root()
     # see https://bugzilla.redhat.com/show_bug.cgi?id=1207083
     if centos_version_eq $releasemaj 7; then
         # /usr/lib/tmpfiles.d/legacy.conf: /var/lock -> ../run/lock
-        ln -snf '../run/lock' "$install_root/var/lock"
+        ln -snf '../run/lock' "${install_root}var/lock"
 
-        t="$install_root/usr/lib/tmpfiles.d/legacy.conf"
+        t="${install_root}usr/lib/tmpfiles.d/legacy.conf"
         if [ -s "$t" ]; then
             sed -e 's,^\(L\s\+/var/lock\),#\1,' "$t" \
-                >"$install_root/etc/tmpfiles.d/${t##*/}"
+                >"${install_root}etc/tmpfiles.d/${t##*/}"
         fi
 
         # /usr/lib/tmpfiles.d/rpm.conf: rm -f /var/lib/rpm/__db.*
-        rm -f "$install_root/var/lib/rpm"/__db.*
+        rm -f "${install_root}var/lib/rpm"/__db.*
 
-        t="$install_root/usr/lib/tmpfiles.d/rpm.conf"
+        t="${install_root}usr/lib/tmpfiles.d/rpm.conf"
         if [ -s "$t" ]; then
             sed -e 's,^\(r\s\+/var/lib/rpm/__db\.\*\),#\1,' "$t" \
-                >"$install_root/etc/tmpfiles.d/${t##*/}"
+                >"${install_root}etc/tmpfiles.d/${t##*/}"
         fi
     fi
 }
@@ -4285,13 +4286,13 @@ config_grub_ipxe()
             local ipxe_iter
 
             for ipxe_iter in \
-                "$install_root/usr/share/ipxe/$ipxe" \
-                "$install_root/usr/lib/ipxe/$ipxe" \
+                "${install_root}usr/share/ipxe/$ipxe" \
+                "${install_root}usr/lib/ipxe/$ipxe" \
                 #
             do
                 if [ -f "$ipxe_iter" ]; then
                     install -D -m 0644 \
-                        "$ipxe_iter" "$install_root/boot/$ipxe_name"
+                        "$ipxe_iter" "${install_root}boot/$ipxe_name"
                     return
                 fi
             done
@@ -4334,7 +4335,7 @@ config_grub_serial()
 {
     # Enable serial line console
     if [ -n "$serial_console" ]; then
-        t="$install_root/etc/default/grub"
+        t="${install_root}etc/default/grub"
 
         local serial
         eval $(
@@ -4870,7 +4871,7 @@ rsync-wrapper.tgz.b64
 
     # /root
     t="$(in_chroot_exec "$install_root" 't=~root; echo "t='\''$t'\''"')"
-    eval "$t" && t="$install_root/$t"
+    eval "$t" && t="$install_root${t#/}"
 
     make_xdg_dirs "$t"
     mc_ini "$t"
@@ -4880,7 +4881,7 @@ rsync-wrapper.tgz.b64
     rsync_wrapper "$t"
 
     # /etc/skel
-    t="$install_root/etc/skel"
+    t="${install_root}etc/skel"
 
     make_xdg_dirs "$t"
     mc_ini "$t"
@@ -5591,9 +5592,9 @@ if [ -n "$install_root" ]; then
     # Make path absolute
     install_root="$(cd "$install_root" >/dev/null 2>&1 && echo "$PWD")" ||
         fatal 'fail to resolve install root to absolute path\n'
-    install_root="${install_root%/}"
+    install_root="${install_root%/}/"
 
-    [ -n "$install_root" ] || build_info=''
+    [ -n "${install_root%/}" ] || build_info=''
 else
     install_root='/'
     build_info=''
@@ -5601,7 +5602,7 @@ fi
 
 # Install build information
 if [ -n "$build_info" ]; then
-    d="$install_root/.${this_prog%.sh}"
+    d="${install_root}.${this_prog%.sh}"
 
     # $this
     if [ -e "$this" ]; then
@@ -5773,7 +5774,7 @@ exit_handler()
 
     if [ -n "${installed-}" ]; then
         ## Add helpers
-        local systemctl_helper="$install_root/bin/systemctl"
+        local systemctl_helper="${install_root}bin/systemctl"
 
         t='command -v systemctl >/dev/null 2>&1'
         if [ -e "$systemctl_helper" ] || in_chroot "$install_root" "$t"; then
@@ -5809,7 +5810,7 @@ _EOF
 
         if [ -n "${pkg_grub2-}" ]; then
             # Add default GRUB config
-            t="$install_root/etc/default/grub"
+            t="${install_root}etc/default/grub"
 
             if [ ! -s "$t" ]; then
                 cat >"$t" <<'_EOF'
@@ -5965,13 +5966,13 @@ _EOF
 
         # Enable tmp.mount with up to $tmp_mount percents of system RAM
         if [ -n "$tmp_mount" ]; then
-            t="$install_root/usr/lib/systemd/system/tmp.mount"
+            t="${install_root}usr/lib/systemd/system/tmp.mount"
             if [ -s "$t" ]; then
                 [ "$tmp_mount" -ge ${_tmp_mount_min} -a \
                   "$tmp_mount" -le ${_tmp_mount_max} ] 2>/dev/null ||
                     tmp_mount=${_tmp_mount}
                 sed -e "s/^\(Options=.\+\)$/\1,size=$tmp_mount%/" "$t" \
-                    >"$install_root/etc/systemd/system/${t##*/}"
+                    >"${install_root}etc/systemd/system/${t##*/}"
                 in_chroot "$install_root" 'systemctl enable tmp.mount'
             fi
         fi
@@ -6005,7 +6006,7 @@ _EOF
 
         # $selinux
         if [ -n "$selinux" ]; then
-            sed -i "$install_root/etc/selinux/config" \
+            sed -i "${install_root}etc/selinux/config" \
                 -e "s/^\(SELINUX=\)\w\+\(\s*\)$/\1$selinux\2/"
         fi
 
@@ -6020,7 +6021,7 @@ _EOF
 
             config_readonly_root
 
-            sed -i "$install_root/etc/sysconfig/readonly-root" \
+            sed -i "${install_root}etc/sysconfig/readonly-root" \
                 -e 's/^\(READONLY=\)\w\+\(\s*\)$/\1yes\2/' \
                 #
         fi
@@ -6039,7 +6040,7 @@ _EOF
 
         # $autorelabel
         if [ -n "$autorelabel" ]; then
-            echo >"$install_root/.autorelabel"
+            echo >"${install_root}.autorelabel"
         fi
 
         # Provide user configuration for applications
@@ -6050,7 +6051,7 @@ _EOF
 
         # Termiate bash after given seconds of inactivity (auto-logout)
         if [ -x '/bin/bash' ]; then
-            t="$install_root/etc/profile.d/shell-timeout.sh"
+            t="${install_root}etc/profile.d/shell-timeout.sh"
             cat >"$t" <<'_EOF'
 # Set non-X11 login shell session auto-logout after timeout
 [ -n "$DISPLAY" ] || export TMOUT=$((20 * 60))
@@ -6058,13 +6059,13 @@ _EOF
         fi
 
         # Make sure /var/log/lastlog is here
-        t="$install_root/var/log/lastlog" && [ -f "$t" ] || : >"$t"
+        t="${install_root}var/log/lastlog" && [ -f "$t" ] || : >"$t"
         # Make sure /etc/sysconfig/network is here
-        t="$install_root/etc/sysconfig/network" && [ -f "$t" ] || : >"$t"
+        t="${install_root}etc/sysconfig/network" && [ -f "$t" ] || : >"$t"
         # Make sure /var/lib/systemd/random-seed is here and empty
-        t="$install_root/var/lib/systemd" && [ ! -d "$t" ] || : >"$t/random-seed"
+        t="${install_root}var/lib/systemd" && [ ! -d "$t" ] || : >"$t/random-seed"
         # Make sure /etc/machine-id is here and empty
-        t="$install_root/etc/machine-id" && : >"$t"
+        t="${install_root}etc/machine-id" && : >"$t"
 
         # Update GRUB configuration file
         if [ -n "${pkg_grub2-}" ]; then
@@ -6077,7 +6078,7 @@ _EOF
         fi
 
         # Restore /etc/yum.conf.rhbootstrap after yum(1) from EPEL install
-        f="$install_root/etc/yum.conf"
+        f="${install_root}etc/yum.conf"
         t="$f.rhbootstrap"
         if [ ! -e "$f" -a -e "$t" ]; then
             mv -f "$t" "$f" ||:
@@ -6092,7 +6093,7 @@ _EOF
 
         if [ -n "$nodocs" ]; then
             # Directories not excluded from install. They are empty.
-            find "$install_root/usr/share/doc" -type d -a -empty -a -delete
+            find "${install_root}usr/share/doc" -type d -a -empty -a -delete
         fi
 
         # Clean yum(1) packages and cached data
@@ -6127,17 +6128,17 @@ _EOF
 
             return $rc
         }
-        clean_dir "$install_root/var/log"
+        clean_dir "${install_root}var/log"
     fi
 
     if [ -n "${install_root%/}" ]; then
         # Unmount bind-mounted filesystems
-        for t in '/proc/1' '/proc' '/sys' '/dev'; do
+        for t in 'proc/1' 'proc' 'sys' 'dev'; do
             t="$install_root$t"
             ! mountpoint -q "$t" || umount "$t"
         done
 
-        t="$install_root/.tmp"
+        t="${install_root}.tmp"
         rm -rf "$t" ||:
     fi
 
@@ -6205,7 +6206,7 @@ distro_rhel()
             local baseurl_p1='^#\?\(baseurl\)=.\+/\$releasever/\(.\+\)$'
             local baseurl_p2="\1=$url/$releasever/\2"
 
-            find "$install_root/etc/yum.repos.d" \
+            find "${install_root}etc/yum.repos.d" \
                 -name 'CentOS-*.repo' -a -type f -a -exec \
             sed -i \
                 -e 's,^\(mirrorlist\|metalink\)=,#\1=,' \
@@ -6217,19 +6218,19 @@ distro_rhel()
             # Add gpgkey= to local file://
             local t="$install_root"
             local url
-            url="$t/etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-$releasemaj"
+            url="${t}etc/pki/rpm-gpg/RPM-GPG-KEY-CentOS-$releasemaj"
             if [ ! -f "$url" ]; then
-                url="$t/usr/share/doc/centos-release-$releasemaj/RPM-GPG-KEY"
+                url="${t}usr/share/doc/centos-release-$releasemaj/RPM-GPG-KEY"
                 if [ ! -f "$url" ]; then
                     url=''
                 fi
             fi
             if [ -n "$url" ]; then
-                find "$install_root/etc/yum.repos.d" \
+                find "${install_root}etc/yum.repos.d" \
                     -name 'CentOS-*.repo' -a -type f -a -exec \
                 sed -i \
                     -e '/^gpgkey=/d' \
-                    -e "/^gpgcheck=1/a gpgkey=file://${url#$t}" \
+                    -e "/^gpgcheck=1/a gpgkey=file:///${url#$t}" \
                 {} \+
             fi
         fi
@@ -6237,7 +6238,7 @@ distro_rhel()
         if is_centos && [ -n "${releasever_orig-}" ]; then
             # Update to target version
             if [ $releasever_orig = '6.10' ]; then
-                find "$install_root/etc/yum.repos.d" \
+                find "${install_root}etc/yum.repos.d" \
                     -name 'CentOS-*.repo' -a -type f -a -exec \
                 sed -i \
                     -e '/^baseurl=/!b' \
@@ -6393,7 +6394,7 @@ distro_rhel()
                     local baseurl_p1="^#\?\(baseurl\)=.\+/\($t\)/\(.\+\)$"
                     local baseurl_p2="\1=$url/\$releasever/\3"
 
-                    find "$install_root/etc/yum.repos.d" \
+                    find "${install_root}etc/yum.repos.d" \
                         -name 'epel*.repo' -a -type f -a -exec \
                     sed -i \
                         -e 's,^\(mirrorlist\|metalink\)=,#\1=,' \
@@ -6405,7 +6406,7 @@ distro_rhel()
                    [ $releasemaj -eq 4 ] && version_le $releasemm 4.3
                 then
                     # Backup /etc/yum.conf since yum(1) from EPEL doesn't have it
-                    local t="$install_root/etc/yum.conf"
+                    local t="${install_root}etc/yum.conf"
                     ln -nf "$t" "$t.rhbootstrap" ||:
                 fi
 
@@ -6429,7 +6430,7 @@ distro_rhel()
         # VirtIO-Win
         if [ -n "$repo_virtio_win" ]; then
             safe_curl "$VIRTIO_WIN_URL" 1024 \
-                >"$install_root/etc/yum.repos.d/virtio-win.repo" \
+                >"${install_root}etc/yum.repos.d/virtio-win.repo" \
             && has_enable 'repo' || repo_virtio_win=''
         fi
 
@@ -6661,7 +6662,7 @@ distro_fedora()
             local baseurl_p1='^#\?\(baseurl\)=.\+/\([^/]\+/\$releasever/.\+\)$'
             local baseurl_p2="\1=$url/\2"
 
-            find "$install_root/etc/yum.repos.d" \
+            find "${install_root}etc/yum.repos.d" \
                 -name 'fedora*.repo' -a -type f -a -exec \
             sed -i \
                 -e 's,^\(mirrorlist\|metalink\)=,#\1=,' \
@@ -6806,28 +6807,29 @@ config_rpm_gpg
 
 if [ -n "${install_root%/}" ]; then
     # Bind mount proc, sys and dev filesystems
-    for f in '/proc' '/sys' '/dev'; do
+    for f in 'proc' 'sys' 'dev'; do
         d="$install_root$f"
-        install -d "$d" && mount --bind "$f" "$d"
+        install -d "$d" && mount --bind "/$f" "$d"
     done
 
     # Point /etc/mtab to /proc/self/mounts unless it already exist
-    f="$install_root/etc/mtab"
+    f="${install_root}etc/mtab"
     if [ ! -f "$f" ]; then
         install -D -m 0644 /dev/null "$f"
         ln -snf '../proc/self/mounts' "$f"
     fi
 
     # Hide /proc/1 from target (e.g. for rpm pre/post scripts)
-    f="$install_root/proc/1"
-    d="$install_root/.tmp/1"
+    f="${install_root}proc/1"
+    d="${install_root}.tmp/1"
 
     [ -d "$f" ] && install -d "$d" && mount --bind "$d" "$f" ||:
 
     if [ -n "${install_root%/}" ]; then
         # Need access to resolvers: prefer system, fall back to public
-        f='/etc/resolv.conf'
+        f='etc/resolv.conf'
         d="$install_root$f"
+        f="/$f"
 
         if [ -s "$f" ]; then
             install -D -m 0644 "$f" "$d"
@@ -6908,7 +6910,7 @@ yum -y \
 if [ -n "${install_root%/}" ]; then
     # Convert rpmdb(1) from host to target format
     {
-        t="$install_root/var/lib/rpm"
+        t="${install_root}var/lib/rpm"
         find "$t" ! -name 'Packages' -a -type f -a -exec rm -f {} \+
 
         t="$t/Packages" && f="$t.bak"
@@ -6957,15 +6959,15 @@ if [ -n "$nfs_root" ]; then
     nameservers="${nameservers:-${_nameservers}}"
 
     # Install /etc/dracut.conf.d
-    install -d "$install_root/etc/dracut.conf.d"
+    install -d "${install_root}etc/dracut.conf.d"
 
     # Build generic image regardless of dracut-config-generic
     echo 'hostonly="no"' \
-        >"$install_root/etc/dracut.conf.d/00-generic-image.conf"
+        >"${install_root}etc/dracut.conf.d/00-generic-image.conf"
 
     # Add "nfs" dracut module (from dracut-network package)
     echo 'add_dracutmodules+=" nfs "' \
-        >"$install_root/etc/dracut.conf.d/01-nfs.conf"
+        >"${install_root}etc/dracut.conf.d/01-nfs.conf"
 
     # No minimal install as we need at least dracut modules and nfs-utils
     minimal_install=''
@@ -7010,8 +7012,8 @@ if [ -n "$cc" ]; then
     fi
 
     for f in \
-        "$install_root/etc/yum/vars/$cc_var" \
-        "$install_root/etc/dnf/vars/$cc_var" \
+        "${install_root}etc/yum/vars/$cc_var" \
+        "${install_root}etc/dnf/vars/$cc_var" \
         #
     do
         if [ -d "${f%/*}" ]; then
@@ -7020,7 +7022,7 @@ if [ -n "$cc" ]; then
         fi
     done
 
-    for f in "$install_root/etc/yum.repos.d"/*.repo; do
+    for f in "${install_root}etc/yum.repos.d"/*.repo; do
         if [ -f "$f" ]; then
             sed -i "$f" \
                 -e '/^mirrorlist=.\+\/\?[^=]\+=[^=]*/!b' \
