@@ -5114,12 +5114,13 @@ minimal_install=''
 
 # External repositories (e.g. EPEL, ELRepo and RPM Fusion)
 repo_epel=1
+repo_elrepo=''
+repo_rpmfusion=''
 repo_virtio_win=''
 repo_advanced_virtualization=''
 repo_openstack=''
 repo_ovirt=''
-repo_elrepo=''
-repo_rpmfusion=''
+repo_nfv_openvswitch=''
 
 # NFS root
 nfs_root=''
@@ -5221,6 +5222,10 @@ Options and their defaults:
 
     --no-repo-epel, --repo-epel
         Disable/enable EPEL repository and selected packages from it
+    --repo-elrepo, --no-repo-elrepo
+        Enable/disable ELRepo and selected packages from it
+    --repo-rpmfusion, --no-repo-rpmfusion
+        Enable/disable RPM Fusion and selected packages from it
     --repo-virtio-win, --no-repo-virtio-win
         Enable/disable VirtIO-Win repository and selected
         packages from it, ignored if oVirt repository enabled
@@ -5233,10 +5238,9 @@ Options and their defaults:
     --repo-ovirt, --no-repo-ovirt
         Enable/disable oVirt repository and selected packages
         from it, ignored if OpenStack repository enabled
-    --repo-elrepo, --no-repo-elrepo
-        Enable/disable ELRepo and selected packages from it
-    --repo-rpm-fusion, --no-repo-rpm-fusion
-        Enable/disable RPM Fusion and selected packages from it
+    --repo-nfv-openvswitch, --no-repo-nfv-openvswitch
+        Enable/disable NFV-OpenvSwitch repository and selected packages
+        from it, ignored if OpenStack or oVirt repositories enabled
 
     --nfs-root
         Prepare bootstrapped system for use as NFS root and make initramfs
@@ -5422,6 +5426,20 @@ while [ $# -gt 0 ]; do
         --repo-epel)
             repo_epel=1
             ;;
+        # ELRepo
+        --no-repo-elrepo)
+            repo_elrepo=''
+            ;;
+        --repo-elrepo)
+            repo_elrepo=1
+            ;;
+        # RPM Fusion
+        --no-repo-rpmfusion)
+            repo_rpmfusion=''
+            ;;
+        --repo-rpmfusion)
+            repo_rpmfusion=1
+            ;;
         # VirtIO-Win
         --no-repo-virtio-win)
             repo_virtio_win=''
@@ -5450,19 +5468,12 @@ while [ $# -gt 0 ]; do
         --repo-ovirt)
             repo_ovirt=1
             ;;
-        # ELRepo
-        --no-repo-elrepo)
-            repo_elrepo=''
+        # OpenvSwitch
+        --no-repo-nfv-openvswitch)
+            repo_nfv_openvswitch=''
             ;;
-        --repo-elrepo)
-            repo_elrepo=1
-            ;;
-        # RPM Fusion
-        --no-repo-rpm-fusion)
-            repo_rpmfusion=''
-            ;;
-        --repo-rpm-fusion)
-            repo_rpmfusion=1
+        --repo-nfv-openvswitch)
+            repo_nfv_openvswitch=1
             ;;
 
         --nfs-root)
@@ -6372,12 +6383,13 @@ has_epel=''
 distro_disable_extra_repos()
 {
     # Except EPEL
+    repo_elrepo=''
+    repo_rpmfusion=''
     repo_virtio_win=''
     repo_advanced_virtualization=''
     repo_openstack=''
     repo_ovirt=''
-    repo_elrepo=''
-    repo_rpmfusion=''
+    repo_nfv_openvswitch=''
 }
 
 # Usage: distro_rhel
@@ -6457,6 +6469,7 @@ distro_rhel()
         local ADVANCED_VIRTUALIZATION_RELEASE_RPM
         local OPENSTACK_RELEASE_RPM
         local OVIRT_RELEASE_RPM
+        local NFV_OPENVSWITCH_RELEASE_RPM
         local RPMFUSION_URL RPMFUSION_RELEASE_RPM RPMFUSION_RELEASE_URL
         local VIRTIO_WIN_URL
 
@@ -6479,6 +6492,11 @@ distro_rhel()
             ELREPO_RELEASE_RPM="elrepo-release-$releasemaj.el$releasemaj.elrepo.noarch.rpm"
             ELREPO_RELEASE_URL="$ELREPO_URL/$ELREPO_RELEASE_RPM"
 
+            # RPM Fusion
+            RPMFUSION_URL='https://download1.rpmfusion.org/free/el'
+            RPMFUSION_RELEASE_RPM="rpmfusion-free-release-$releasemaj.noarch.rpm"
+            RPMFUSION_RELEASE_URL="$RPMFUSION_URL/$RPMFUSION_RELEASE_RPM"
+
             # Advanced Virtualization
             ADVANCED_VIRTUALIZATION_RELEASE_RPM='centos-release-advanced-virtualization'
 
@@ -6488,10 +6506,8 @@ distro_rhel()
             # oVirt
             OVIRT_RELEASE_RPM='centos-release-ovirt44'
 
-            # RPM Fusion
-            RPMFUSION_URL='https://download1.rpmfusion.org/free/el'
-            RPMFUSION_RELEASE_RPM="rpmfusion-free-release-$releasemaj.noarch.rpm"
-            RPMFUSION_RELEASE_URL="$RPMFUSION_URL/$RPMFUSION_RELEASE_RPM"
+            # OpenvSwitch
+            NFV_OPENVSWITCH_RELEASE_RPM='centos-release-nfv-openvswitch'
         elif [ $releasemaj -eq 7 ]; then
             # EPEL
             EPEL_URL='http://dl.fedoraproject.org/pub/epel'
@@ -6503,6 +6519,11 @@ distro_rhel()
             ELREPO_RELEASE_RPM='elrepo-release-7.el7.elrepo.noarch.rpm'
             ELREPO_RELEASE_URL="$ELREPO_URL/$ELREPO_RELEASE_RPM"
 
+            # RPM Fusion
+            RPMFUSION_URL='https://download1.rpmfusion.org/free/el'
+            RPMFUSION_RELEASE_RPM='rpmfusion-free-release-7.noarch.rpm'
+            RPMFUSION_RELEASE_URL="$RPMFUSION_URL/$RPMFUSION_RELEASE_RPM"
+
             # Advanced Virtualization
             ADVANCED_VIRTUALIZATION_RELEASE_RPM='centos-release-qemu-ev'
 
@@ -6512,10 +6533,8 @@ distro_rhel()
             # oVirt
             OVIRT_RELEASE_RPM='centos-release-ovirt43'
 
-            # RPM Fusion
-            RPMFUSION_URL='https://download1.rpmfusion.org/free/el'
-            RPMFUSION_RELEASE_RPM='rpmfusion-free-release-7.noarch.rpm'
-            RPMFUSION_RELEASE_URL="$RPMFUSION_URL/$RPMFUSION_RELEASE_RPM"
+            # OpenvSwitch
+            NFV_OPENVSWITCH_RELEASE_RPM='<no_nfv_openvswitch_release_rpm>'
         else
             # On old/new CentOS we do
 
@@ -6554,6 +6573,7 @@ distro_rhel()
             repo_openstack=''
             repo_virtio_win=''
             repo_advanced_virtualization=''
+            repo_nfv_openvswitch=''
         fi
 
         # $repo_openstack
@@ -6561,6 +6581,7 @@ distro_rhel()
             repo_ovirt=''
             repo_virtio_win=''
             repo_advanced_virtualization=''
+            repo_nfv_openvswitch=''
         fi
 
         # $repo_epel, $repo_rpmfusion
@@ -6631,6 +6652,19 @@ distro_rhel()
             && has_enable 'repo' || repo_elrepo=''
         fi
 
+        # RPM Fusion
+        if [ -n "$repo_rpmfusion" ]; then
+            in_chroot <"$rpm_gpg_dir/rpmfusion/RPM-GPG-KEY-rpmfusion-free-el-$releasemaj" \
+                "$install_root" \
+                "
+                 rpm --import '/dev/stdin' && {
+                     rpm -U '$RPMFUSION_RELEASE_URL' || \
+                     rpm --quiet -q '$RPMFUSION_RELEASE_RPM_NAME'
+                 }
+                " \
+            && has_enable 'repo' || repo_rpmfusion=''
+        fi
+
         # VirtIO-Win
         if [ -n "$repo_virtio_win" ]; then
             safe_curl "$VIRTIO_WIN_URL" 1024 \
@@ -6659,17 +6693,11 @@ distro_rhel()
             " && has_enable 'repo' || repo_ovirt=''
         fi
 
-        # RPM Fusion
-        if [ -n "$repo_rpmfusion" ]; then
-            in_chroot <"$rpm_gpg_dir/rpmfusion/RPM-GPG-KEY-rpmfusion-free-el-$releasemaj" \
-                "$install_root" \
-                "
-                 rpm --import '/dev/stdin' && {
-                     rpm -U '$RPMFUSION_RELEASE_URL' || \
-                     rpm --quiet -q '$RPMFUSION_RELEASE_RPM_NAME'
-                 }
-                " \
-            && has_enable 'repo' || repo_rpmfusion=''
+        # OpenvSwitch
+        if [ -n "$repo_nfv_openvswitch" ]; then
+            in_chroot "$install_root" "
+                yum -y install '$NFV_OPENVSWITCH_RELEASE_RPM'
+            " && has_enable 'repo' || repo_nfv_openvswitch=''
         fi
 
         # Repositories might provide updated package versions
@@ -6777,6 +6805,11 @@ distro_rhel()
         fi
     elif is_centos; then
         host='centos.org'
+
+        if [ $releasemaj -le 7 ]; then
+            # These is not available on CentOS/others <= 7
+            repo_nfv_openvswitch=''
+        fi
 
         # $subdir
         subdir='centos'
@@ -7855,11 +7888,18 @@ if [ -n "${grp_virt_host-}" ]; then
         pkg_qemu_xen=
     fi
 
-    if [ -n "$repo_openstack" -o -n "$repo_ovirt" ]; then
-        if [ -n "${pkg_openvswitch-}" ]; then
+    # openvswitch
+    if [ -n "${pkg_openvswitch-}" ]; then
+          if [ -n "$repo_openstack" -o -n "$repo_ovirt" ]; then
             PKGS="$PKGS openvswitch"
 
-            [ -z "${pkg_openvswitch_ipsec-}" ] || PKGS="$PKGS openvswitch-ipsec"
+            [ -z "${pkg_openvswitch_ipsec-}" ] ||
+                PKGS="$PKGS openvswitch-ipsec"
+        elif [ -n "$repo_nfv_openvswitch" ]; then
+            PKGS="$PKGS openvswitch${pkg_openvswitch}"
+
+            [ -z "${pkg_openvswitch_ipsec-}" ] ||
+                PKGS="$PKGS openvswitch${pkg_openvswitch_ipsec}-ipsec"
         fi
     fi
 fi # [ -n "${grp_virt_host-}" ]

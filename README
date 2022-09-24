@@ -78,14 +78,25 @@ Options and their defaults:
 
     --no-repo-epel, --repo-epel
         Disable/enable EPEL repository and selected packages from it
-    --repo-virtio-win, --no-repo-virtio-win
-        Enable/disable VirtIO-Win repository and selected packages from it
-    --repo-ovirt, --no-repo-ovirt
-        Enable/disable oVirt repository and selected packages from it
     --repo-elrepo, --no-repo-elrepo
         Enable/disable ELRepo and selected packages from it
-    --repo-rpm-fusion, --no-repo-rpm-fusion
+    --repo-rpmfusion, --no-repo-rpmfusion
         Enable/disable RPM Fusion and selected packages from it
+    --repo-virtio-win, --no-repo-virtio-win
+        Enable/disable VirtIO-Win repository and selected
+        packages from it, ignored if oVirt repository enabled
+    --repo-advanced-virtualization, --no-repo-advanced-virtualization
+        Enable/disable Advanced Virtualization repository and senected
+        packages from it, ignored if oVirt or OpenStack repository enabled
+    --repo-openstack, --no-repo-openstack
+        Enable/disable OpenStack repository and selected
+        packages from it, ignored if oVirt repository enabled
+    --repo-ovirt, --no-repo-ovirt
+        Enable/disable oVirt repository and selected packages
+        from it, ignored if OpenStack repository enabled
+    --repo-nfv-openvswitch, --no-repo-nfv-openvswitch
+        Enable/disable NFV-OpenvSwitch repository and selected packages
+        from it, ignored if OpenStack or oVirt repositories enabled
 
     --nfs-root
         Prepare bootstrapped system for use as NFS root and make initramfs
