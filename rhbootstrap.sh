@@ -6038,6 +6038,16 @@ _EOF
                 # Source in subshell to not pollute environment
                 . "$t"
 
+                # Temporary file name based on interpreter pid
+                f="$t.$$"
+
+                GRUB_CMDLINE_LINUX="$(
+                    echo "${GRUB_CMDLINE_LINUX-}" | \
+                    sed -e 's,\s\+, ,g' \
+                        -e 's,\(^ \| $\),,' \
+                        #
+                )"
+
                 {
                     # <begin>
                     # GRUB_CMDLINE_LINUX=...
@@ -6050,15 +6060,15 @@ _EOF
                         -e '/^GRUB_CMDLINE_LINUX=/,$ {/^GRUB_CMDLINE_LINUX=/d; p}' \
                         #
                 } | {
-                     sed \
-                        -e '/^GRUB_CMDLINE_LINUX=/!b' \
-                        -e "s,.*,GRUB_CMDLINE_LINUX=\"${GRUB_CMDLINE_LINUX-}\"," \
-                        -e 's,\s\+, ,g' \
-                        -e "s,\([\"']\)\s*,\1,g" \
-                        -e "s,\s*\(['\"]\),\1,g" \
+                    sed -e '/^GRUB_CMDLINE_LINUX=/!b' \
+                        -e "i GRUB_CMDLINE_LINUX=\"${GRUB_CMDLINE_LINUX-}\"" \
+                        -e 'd' \
                         #
-                } >"$t.$$"
-                mv -f "$t.$$" "$t"
+                } >"$f"
+
+                if [ -s "$f" ]; then
+                    mv -f "$f" "$t"
+                fi
             )
         fi
 
