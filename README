@@ -112,6 +112,8 @@ Options and their defaults:
         Mount /tmp as regular filesystem or tmpfs with size up to
         25% of system RAM. Valid value range is
         [10...50]
+    --plymouth-theme=tribar
+        Select plymouth theme when plymouth enabled
     --serial-console=<console=name,options|1>, --no-serial-console
         Enable/disable console on serial line; if value is 1 use default console
         settings (console=ttyS0,115200n8)

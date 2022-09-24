@@ -5103,6 +5103,9 @@ _tmp_mount_min=10
 _tmp_mount=25
 _tmp_mount_max=50
 tmp_mount=${_tmp_mount}
+# Plymouth theme
+_plymouth_theme='tribar'
+plymouth_theme=''
 # Serial line console
 _serial_console='console=ttyS0,115200n8'
 serial_console=''
@@ -5227,6 +5230,8 @@ Options and their defaults:
         Mount /tmp as regular filesystem or tmpfs with size up to
         ${tmp_mount:-<value>}% of system RAM. Valid value range is
         [${_tmp_mount_min}...${_tmp_mount_max}]
+    --plymouth-theme=${plymouth_theme:-${_plymouth_theme}}
+        Select plymouth theme when plymouth enabled
     --serial-console=${serial_console:-<console=name,options|1>}, --no-serial-console
         Enable/disable console on serial line; if value is 1 use default console
         settings (${_serial_console})
@@ -5469,6 +5474,12 @@ while [ $# -gt 0 ]; do
             ;;
         --no-tmp-mount)
             tmp_mount=''
+            ;;
+        --plymouth-theme)
+            [ -n "${2-}" ] || exit
+            plymouth_theme="$2"
+            arg="--plymouth-theme '$plymouth_theme'"
+            shift
             ;;
         --serial-console)
             [ -n "${2-}" ] || exit
@@ -6198,6 +6209,34 @@ _EOF
         t="${install_root}var/lib/systemd" && [ ! -d "$t" ] || : >"$t/random-seed"
         # Make sure /etc/machine-id is here and empty
         t="${install_root}etc/machine-id" && : >"$t"
+
+        # Pick default theme for plymouth
+        if [ -n "${pkg_plymouth-}" ]; then
+            in_chroot "$install_root" "
+                plymouth='/usr/share/plymouth/themes/'
+                # Themes in order of preference
+                for theme in \
+                    '${plymouth_theme:-${_plymouth_theme}}' \
+                    'tribar' \
+                    'text' \
+                    'details' \
+                    #
+                do
+                    if [ -f \"\${plymouth}\$theme/\$theme.plymouth\" ] &&
+                       plymouth-set-default-theme \"\$theme\" >/dev/null 2>&1
+                    then
+                        break
+                    fi
+                done
+            "
+        fi
+
+        # Update initramfs file
+        if [ -n "${pkg_dracut-}" ]; then
+            in_chroot "$install_root" '
+                dracut --force --regenerate-all
+            '
+        fi
 
         # Update GRUB configuration file
         if [ -n "${pkg_grub2-}" ]; then
