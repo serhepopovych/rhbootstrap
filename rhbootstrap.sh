@@ -4300,7 +4300,7 @@ EOF
 
     # Add user and group
     in_chroot "$install_root" \
-        "useradd -M -d / -s '/bin/sh' '$user'"
+        "useradd -M -r -d / -s '/bin/sh' '$user'"
 
     # Add user to libvirt group and change it's ~ if libvirt installed
     if [ -n "${pkg_libvirt-}" ]; then
