@@ -4973,10 +4973,12 @@ Rx111FFHHXXUUUcdddRRRx111FFHHXXU0c9M/wFoJz1YACgAAA==
 rsync-wrapper.tgz.b64
     }
 
-    # Usage: make_xdg_dirs <homedir>
-    make_xdg_dirs()
+    # Usage: config_skel <dir>
+    config_skel()
     {
-        local d="$1"
+        local func="${FUNCNAME:-config_skel}"
+
+        local d="${1:?missing 1st arg to ${func}() <dir>}"
 
         if [ -d "$d" ]; then
             install -d \
@@ -4988,31 +4990,63 @@ rsync-wrapper.tgz.b64
                 "$d/tmp" \
                 #
             ln -snf '.local/bin' "$d/bin"
+
+            mc_ini "$d"
+            screenrc "$d"
+            xfce4 "$d"
+            ssh_agent_start4bashrc "$d"
+            rsync_wrapper "$d"
         fi
     }
 
-    # /root
-    t="$(in_chroot_exec "$install_root" 't=~root; echo "t='\''$t'\''"')"
-    eval "$t" && t="$install_root${t#/}"
+    local uid gid
+    uid="$(id -u 2>/dev/null)"
+    gid="$(id -g 2>/dev/null)"
 
-    make_xdg_dirs "$t"
-    mc_ini "$t"
-    screenrc "$t"
-    xfce4 "$t"
-    ssh_agent_start4bashrc "$t"
-    rsync_wrapper "$t"
+    local t='' u
 
-    # /etc/skel
-    t="${install_root}etc/skel"
+    # user home directory skeleton
+    for u in \
+        '/etc/skel' \
+        'root' \
+        "${SUDO_USER:-setup}" \
+        #
+    do
+        eval $(
+            in_chroot_exec "$install_root" "
+                if [ -n '${u##*/*}' ]; then
+                    # Find user's home directory if user exists
+                    t=~$u && [ -z \"\${t##*/*}\" ] || t=''
+                else
+                    t='$u'
+                fi
+                # / is not allowed as skel: returns t=''
+                echo \"t='\${t#/}'\"
+            "
+        )
+        if [ -n "$t" ]; then
+            config_skel "$install_root$t"
 
-    make_xdg_dirs "$t"
-    mc_ini "$t"
-    screenrc "$t"
-    xfce4 "$t"
-    ssh_agent_start4bashrc "$t"
-    rsync_wrapper "$t"
+            in_chroot "$install_root" "
+                if [ -n '${u##*/*}' ] &&
+                   u=\"\$(id -u '$u' 2>/dev/null)\" &&
+                   g=\"\$(id -g '$u' 2>/dev/null)\" &&
+                   [ \$u -ne $uid -o \$g -ne $gid ]
+                then
+                    # Adjust filesystem entries owner and group
+                    exec chown \
+                        --from='$uid:$gid' \
+                        --recursive \
+                        \"\$u:\$g\" \
+                        '/$t' \
+                        #
+                fi
+            "
+        fi
+    done
 
-    unset -f make_xdg_dirs mc_ini screenrc xfce4 ssh_agent_start4bashrc
+    unset -f mc_ini screenrc xfce4 rsync_wrapper \
+             ssh_agent_start4bashrc config_skel
 }
 
 # Usage: config_flatpak
