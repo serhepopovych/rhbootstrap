@@ -33,6 +33,6 @@ FontAllowBold=FALSE
 ShortcutsNoMnemonics=TRUE
 ShortcutsNoMenukey=TRUE
 ShortcutsNoHelpkey=TRUE
-FontName=Fixed 12
+FontName=Monospace 10
 ColorForeground=#bfbfbfbfbfbf
-
+FontUseSystem=TRUE

@@ -14,18 +14,18 @@
       <property name="plugin-ids" type="array">
         <value type="int" value="1"/>
         <value type="int" value="17"/>
-        <value type="int" value="7"/>
-        <value type="int" value="22"/>
+        <value type="int" value="10"/>
         <value type="int" value="3"/>
         <value type="int" value="5"/>
         <value type="int" value="6"/>
+        <value type="int" value="20"/>
+        <value type="int" value="18"/>
         <value type="int" value="8"/>
         <value type="int" value="9"/>
-        <value type="int" value="10"/>
         <value type="int" value="11"/>
         <value type="int" value="12"/>
         <value type="int" value="13"/>
-        <value type="int" value="14"/>
+        <value type="int" value="21"/>
       </property>
     </property>
     <property name="panel-2" type="empty">
@@ -69,7 +69,8 @@
       <property name="show-notifications" type="bool" value="true"/>
     </property>
     <property name="plugin-9" type="string" value="power-manager-plugin"/>
-    <property name="plugin-10" type="string" value="notification-plugin"/>
+    <property name="plugin-10" type="string" value="directorymenu">
+    </property>
     <property name="plugin-11" type="string" value="separator">
       <property name="style" type="uint" value="0"/>
     </property>
@@ -80,7 +81,6 @@
     <property name="plugin-13" type="string" value="separator">
       <property name="style" type="uint" value="0"/>
     </property>
-    <property name="plugin-14" type="string" value="actions"/>
     <property name="plugin-15" type="string" value="showdesktop"/>
     <property name="plugin-16" type="string" value="separator">
       <property name="expand" type="bool" value="true"/>
@@ -91,7 +91,14 @@
         <value type="string" value="16030362041.desktop"/>
       </property>
     </property>
-    <property name="plugin-10" type="string" value="directorymenu">
+    <property name="plugin-18" type="string" value="xkb">
+      <property name="display-type" type="uint" value="2"/>
+      <property name="display-name" type="uint" value="1"/>
+    </property>
+    <property name="plugin-20" type="string" value="screenshooter"/>
+    <property name="plugin-21" type="string" value="weather">
+      <property name="location" type="empty">
+      </property>
     </property>
   </property>
 </channel>
