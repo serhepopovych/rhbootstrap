@@ -7374,15 +7374,15 @@ pkg_wireshark_gnome=1
         fi
     fi
 elif is_fedora; then
-    if fedora_version_le $releasemaj 27; then
-        if fedora_version_le $releasemaj 26; then
-            if fedora_version_le $releasemaj 25; then
-                if fedora_version_le $releasemaj 24; then
-                    if fedora_version_le $releasemaj 19; then
-                        if fedora_version_le $releasemaj 18; then
-                            if fedora_version_le $releasemaj 15; then
-                                if fedora_version_le $releasemaj 14; then
-                                    if fedora_version_lt $releasemaj 12; then
+    if [ $releasemaj -le 27 ]; then
+        if [ $releasemaj -le 26 ]; then
+            if [ $releasemaj -le 25 ]; then
+                if [ $releasemaj -le 24 ]; then
+                    if [ $releasemaj -le 19 ]; then
+                        if [ $releasemaj -le 18 ]; then
+                            if [ $releasemaj -le 15 ]; then
+                                if [ $releasemaj -le 14 ]; then
+                                    if [ $releasemaj -le 12 ]; then
                                         pkg_vdpau=
                                     fi # < 12
                                     pkg_va=
@@ -7415,7 +7415,7 @@ elif is_fedora; then
         pkg_iucode_tool=
         pkg_remmina_plugins_secret=
     fi # <= 27
-    if fedora_version_ge $releasemaj 24; then
+    if [ $releasemaj -ge 24 ]; then
         pkg_wireshark_gnome=
     fi # >= 24
 fi
