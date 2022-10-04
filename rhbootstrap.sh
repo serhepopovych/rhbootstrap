@@ -4728,7 +4728,7 @@ bashrc-ssh-agent.tgz.b64
     {
         local func="${FUNCNAME:-mc_ini}"
 
-        local unpack_dir="${1:-missing 1st arg to ${func}() <unpack_dir>}"
+        local unpack_dir="${1:?missing 1st arg to ${func}() <unpack_dir>}"
 # md5(mc.tgz.b64) = 520261e689f24b8aea4b716e738fb977
 [ -d "$unpack_dir" ] || install -d "$unpack_dir"
 base64 -d -i <<'mc.tgz.b64' | tar -zxf - -C "$unpack_dir"
@@ -4749,7 +4749,7 @@ mc.tgz.b64
     {
         local func="${FUNCNAME:-screenrc}"
 
-        local unpack_dir="${1:-missing 1st arg to ${func}() <unpack_dir>}"
+        local unpack_dir="${1:?missing 1st arg to ${func}() <unpack_dir>}"
 # md5(screen.tgz.b64) = a358b5eea617ef59ae3e0c1f884f5c28
 [ -d "$unpack_dir" ] || install -d "$unpack_dir"
 base64 -d -i <<'screen.tgz.b64' | tar -zxf - -C "$unpack_dir"
@@ -4774,7 +4774,7 @@ screen.tgz.b64
     {
         local func="${FUNCNAME:-xfce4}"
 
-        local unpack_dir="${1:-missing 1st arg to ${func}() <unpack_dir>}"
+        local unpack_dir="${1:?missing 1st arg to ${func}() <unpack_dir>}"
 # md5(xfce4.tgz.b64) = dcfb8226199b3680617871e1f3102a2c
 [ -d "$unpack_dir" ] || install -d "$unpack_dir"
 base64 -d -i <<'xfce4.tgz.b64' | tar -zxf - -C "$unpack_dir"
@@ -4935,7 +4935,7 @@ xfce4.tgz.b64
     {
         local func="${FUNCNAME:-rsync_wrapper}"
 
-        local unpack_dir="${1:-missing 1st arg to ${func}() <unpack_dir>}"
+        local unpack_dir="${1:?missing 1st arg to ${func}() <unpack_dir>}"
 # md5(rsync-wrapper.tgz.b64) = 27ba0336474bbc375511fb86a0e5ee50
 [ -d "$unpack_dir" ] || install -d "$unpack_dir"
 base64 -d -i <<'rsync-wrapper.tgz.b64' | tar -zxf - -C "$unpack_dir"
