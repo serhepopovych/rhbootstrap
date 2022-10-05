@@ -4155,6 +4155,83 @@ _EOF
                 -e 's/^#\?\(VersionAddendum\s\+\).*$/\1none/' \
                 #
         fi
+
+        in_chroot "$install_root" 'systemctl enable sshd.service'
+    fi
+}
+
+# Usage: config_fail2ban
+config_fail2ban()
+{
+    local file="${install_root}etc/fail2ban/jail.conf"
+    if [ -f "$file" ]; then
+        local dir="${file%/*}"
+
+        local increment=''
+        if grep -q '^#\?bantime\.increment\s*=\s*' "$file"; then
+            increment='true'
+        fi
+
+        local tables='iptables'
+        if [ -f "${install_root}etc/sysconfig/nftables.conf" -a \
+             -f "$dir/action.d/nftables-allports.conf" ]
+        then
+            if ! centos_version_le $releasemaj 7 &&
+               ! fedora_version_le $releasemaj 33
+            then
+                tables='nftables'
+            fi
+        fi
+
+        if [ -d "$dir/jail.d" ]; then
+            dir="$dir/jail.d"
+            file="$dir/99-${this_prog%.sh}.conf"
+            : >"$file"
+        else
+            file="$dir/jail.local"
+        fi
+
+        # default
+        cat >>"$file" <<EOF
+
+[DEFAULT]
+${increment:+
+bantime.increment = true
+bantime.rndtime = 30m
+bantime.maxtime = 20d
+bantime.overalljails = true}
+bantime  = 3h
+findtime  = 30m
+
+banaction = ${tables}
+banaction_allports = ${tables}-allports
+EOF
+
+        # openssh-server
+        if [ -f "${install_root}etc/ssh/sshd_config" ]; then
+            cat >>"$file" <<'_EOF'
+
+[sshd]
+ignoreip = 127.0.0.1
+enabled = true
+maxretry = 10
+_EOF
+        fi
+
+        # xrdp
+        if [ -f "${install_root}etc/xrdp/xrdp.ini" ]; then
+            cat >>"$file" <<'_EOF'
+
+[xrdp]
+ignoreip = 127.0.0.1
+enabled = true
+maxretry = 5
+port = 3389
+logpath = /var/log/xrdp.log
+_EOF
+        fi
+
+        in_chroot "$install_root" 'systemctl enable fail2ban.service'
     fi
 }
 
@@ -6148,6 +6225,9 @@ _EOF
         # Configure openssh-server
         config_sshd
 
+        # Configure fail2ban-server
+        config_fail2ban
+
         # Configure lvm2
         config_lvm2
 
@@ -7422,7 +7502,8 @@ fi
 
 ## List of packages to install
 
-PKGS=''
+# Always install openssh
+PKGS='openssh-server openssh-clients'
 
 ## Bootloader, kernel and utils
 
@@ -7833,6 +7914,28 @@ fi
 [ -z "${pkg_arptables-}" ] || PKGS="$PKGS arptables"
 
 [ -z "${pkg_conntrack_tools-}" ] || PKGS="$PKGS conntrack-tools"
+
+if [ -n "${pkg_fail2ban-}" ]; then
+    PKGS="$PKGS fail2ban-server"
+
+      if is_rocky || is_centos; then
+        if [ $releasemaj -ge 7 ]; then
+            PKGS="$PKGS fail2ban-systemd"
+
+            if [ $releasemaj -ge 8 ]; then
+                PKGS="$PKGS fail2ban-selinux"
+            fi
+        fi
+    elif is_fedora; then
+        if [ $releasemaj -ge 21 ]; then
+            PKGS="$PKGS fail2ban-systemd"
+
+            if [ $releasemaj -ge 32 ]; then
+                PKGS="$PKGS fail2ban-selinux"
+            fi
+        fi
+    fi
+fi
 
 ## Virtualization
 
