@@ -36,13 +36,14 @@ set -u
 #set >&2
 #set -x
 
-this_prog='rhbootstrap.sh'
+readonly _this_prog='rhbootstrap.sh'
 
 if [ ! -e "$0" -o "$0" -ef "/proc/$$/exe" ]; then
     # Executed script is
     #  a) read from stdin through pipe
     #  b) specified via -c option
     #  d) sourced
+    this_prog="${_this_prog}"
     this="$this_prog"
     this_dir='./'
 else
@@ -50,11 +51,20 @@ else
     # from process exe symlink (Linux specific)
     this="$0"
     this_dir="${this%/*}/"
+
+    this_prog="${this##*/}"
+    [ "$this_prog" != 'sh' ] || this_prog="${_this_prog}"
 fi
 this_dir="$(cd "$this_dir" && echo "$PWD")"
 
 # Set program name unless already set
-[ -n "${prog_name-}" ] || prog_name="${this##*/}"
+[ -n "${prog_name-}" ] &&
+[ -n "${prog_name##*[^[:alnum:]_]*}" ] &&
+[ -n "${prog_name##[[:digit:]]*}" ] || prog_name="$this_prog"
+
+readonly _prog_name="$prog_name"
+
+prog_name="${prog_name%\.sh}"
 prog_version='1.0'
 
 # Verbosity: report errors by default
@@ -153,8 +163,8 @@ cfg_begin()
     local comment="${1:?missing 1st arg to ${func}() <comment>}"
 
     printf -- '## %s-begin-%s\n' \
-        "${this_prog%.sh}" \
-        "${comment}" \
+        "$prog_name" \
+        "$comment" \
         #
 
     __cfg_comment__="$comment"
@@ -182,8 +192,8 @@ cfg_end()
     fi
 
     printf -- '## %s-end-%s\n' \
-        "${this_prog%.sh}" \
-        "${comment}" \
+        "$prog_name" \
+        "$comment" \
         #
 
     __cfg_comment__=''
@@ -4273,7 +4283,7 @@ config_sshd()
         if [ -d "$dir" ] &&
            grep -q "^\s*Include\s*/${dir#$install_root}/\*\.conf" "$file"
         then
-            file="$dir/99-${this_prog%.sh}.conf"
+            file="$dir/99-$prog_name.conf"
             cat >"$file" <<'_EOF'
 AllowGroups root users
 PermitRootLogin prohibit-password
@@ -4319,7 +4329,7 @@ config_fail2ban()
         local _cfg_replace_append_nohdr=''
         if [ -d "$dir/jail.d" ]; then
             dir="$dir/jail.d"
-            file="$dir/99-${this_prog%.sh}.conf"
+            file="$dir/99-$prog_name.conf"
             : >"$file"
             _cfg_replace_append_nohdr='1'
         else
@@ -4527,7 +4537,7 @@ EOF
 
         local _cfg_replace_append_nohdr=''
 
-        t="$dir/99-${this_prog%.sh}.conf"
+        t="$dir/99-$prog_name.conf"
         if [ -f "$t" ]; then
             file="$t"
             _cfg_replace_append_nohdr='1'
@@ -5989,11 +5999,11 @@ fi
 
 # Install build information
 if [ -n "$build_info" ]; then
-    d="${install_root}.${this_prog%.sh}"
+    d="${install_root}.${prog_name}"
 
     # $this
     if [ -e "$this" ]; then
-        install -D "$this" "$d/$this_prog"
+        install -D "$this" "$d/${_prog_name}"
     fi
 
     # $config
@@ -6053,7 +6063,7 @@ else
         trap 'rm -rf "\$this_dir" ||:' EXIT
     fi
 
-    "\$this_dir/$prog_name" $argv \\
+    "\$this_dir/${_prog_name}" $argv \\
          $f \\
         '$install_root' \\
         #
