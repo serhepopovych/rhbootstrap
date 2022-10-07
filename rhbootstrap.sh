@@ -136,6 +136,139 @@ _exit()
     exit $rc
 }
 
+__cfg_comment__=''
+
+# Usage: cfg_begin <comment>
+cfg_begin()
+{
+    local func="${FUNCNAME:-cfg_begin}"
+
+    if [ -n "${__cfg_comment__}" ]; then
+        fatal '%s: config nesting is not supported: end config "%s" first.\n' \
+            "${func}" \
+            "${__cfg_comment__}" \
+            #
+    fi
+
+    local comment="${1:?missing 1st arg to ${func}() <comment>}"
+
+    printf -- '## %s-begin-%s\n' \
+        "${this_prog%.sh}" \
+        "${comment}" \
+        #
+
+    __cfg_comment__="$comment"
+}
+
+# Usage: cfg_end <comment>
+cfg_end()
+{
+    local func="${FUNCNAME:-cfg_end}"
+
+    if [ -z "${__cfg_comment__}" ]; then
+        fatal '%s: no config to end: begin new config first.\n' \
+            "${func}" \
+            #
+    fi
+
+    local comment="${1:?missing 1st arg to ${func}() <comment>}"
+
+    if [ "${comment}" != "${__cfg_comment__}" ]; then
+        fatal '%s: config commet mismatch: begin with "%s", end with "%s"\n' \
+            "${func}" \
+            "${__cfg_comment__}" \
+            "${comment}" \
+            #
+    fi
+
+    printf -- '## %s-end-%s\n' \
+        "${this_prog%.sh}" \
+        "${comment}" \
+        #
+
+    __cfg_comment__=''
+}
+
+# Usage: cfg_strip <comment> [<file>]
+cfg_strip()
+{
+    local func="${FUNCNAME:-cfg_strip}"
+
+    local comment="${1:?missing 1st arg to ${func}() <comment>}"
+    local file="${2-}"
+
+    local begin_r="^$(
+        __cfg_comment__=''           cfg_begin "$comment" | \
+        sed -e 's,[]\/$*.^[],\\&,g'
+    )$"
+    local end_r="^$(
+        __cfg_comment__="${comment}" cfg_end   "$comment" | \
+        sed -e 's,[]\/$*.^[],\\&,g'
+    )$"
+
+    sed ${file:+-i "$file"} \
+        -e "/$begin_r/,/$end_r/ d" \
+        #
+}
+
+# Usage: cfg_replace <comment> <file> [<text>]
+cfg_replace()
+{
+    local func="${FUNCNAME:-cfg_replace}"
+
+    local comment="${1:?missing 1st arg to ${func}() <comment>}"
+    local file="${2:?missing 2d arg to ${func}() <file>}"
+    local text="${3-}"
+
+    if [ -n "$text" ]; then
+        local begin="$(__cfg_comment__=''           cfg_begin "$comment")"
+        local   end="$(__cfg_comment__="${comment}" cfg_end   "$comment")"
+
+        local begin_r="^$(
+            printf -- '%s\n' "$begin" | \
+            sed -e 's,[]\/$*.^[],\\&,g'
+        )\$"
+        local end_r="^$(
+            printf -- '%s\n' "$end" | \
+            sed -e 's,[]\/$*.^[],\\&,g'
+        )\$"
+
+        local addr="/$begin_r/,/$end_r/"
+
+        if [ -n "$(sed -n -e "$addr p" "$file")" ]; then
+            # replace
+            text="$(
+                printf -- '%s\n%s\n%s\n' \
+                    "$begin" "$text" "$end" | \
+                sed -e 's,$,\\,'
+            )"
+            text="${text%\\}"
+
+            sed -i "$file" \
+                -e "$addr c$text" \
+                #
+        else
+            # append
+            if ! [ -n "${_cfg_replace_append_nohdr-}" ]; then
+                text="$begin
+$text
+$end
+"
+            fi
+            printf -- '%s' "$text" >>"$file"
+        fi
+    else
+        cfg_strip "$comment" "$file"
+    fi
+}
+
+# Usage: cfg_replace_append_nohdr <comment> <file> [<text>]
+cfg_replace_append_nohdr()
+{
+    local _cfg_replace_append_nohdr='1'
+    cfg_replace "$@" || return
+}
+
 # Usage: safe_curl <url> <size> [<curl(1) options>...]
 safe_curl()
 {
@@ -4183,17 +4316,18 @@ config_fail2ban()
             fi
         fi
 
+        local _cfg_replace_append_nohdr=''
         if [ -d "$dir/jail.d" ]; then
             dir="$dir/jail.d"
             file="$dir/99-${this_prog%.sh}.conf"
             : >"$file"
+            _cfg_replace_append_nohdr='1'
         else
             file="$dir/jail.local"
         fi
 
         # default
-        cat >>"$file" <<EOF
-
+        cfg_replace 'default' "$file" "
 [DEFAULT]
 ${increment:+
 bantime.increment = true
@@ -4205,30 +4339,27 @@ findtime  = 30m
 
 banaction = ${tables}
 banaction_allports = ${tables}-allports
-EOF
-
-        # openssh-server
+"
+        # openssh-service
         if [ -f "${install_root}etc/ssh/sshd_config" ]; then
-            cat >>"$file" <<'_EOF'
-
+            cfg_replace 'sshd' "$file" '
 [sshd]
 ignoreip = 127.0.0.1
 enabled = true
 maxretry = 10
-_EOF
+'
         fi
 
         # xrdp
         if [ -f "${install_root}etc/xrdp/xrdp.ini" ]; then
-            cat >>"$file" <<'_EOF'
-
+            cfg_replace 'xrdp' "$file" '
 [xrdp]
 ignoreip = 127.0.0.1
 enabled = true
 maxretry = 5
 port = 3389
 logpath = /var/log/xrdp.log
-_EOF
+'
         fi
 
         in_chroot "$install_root" 'systemctl enable fail2ban.service'
@@ -4394,20 +4525,22 @@ EOF
         install -d -m 0751 "$install_root$keys"
         keys="/$keys"
 
-        local dir="$file.d"
-        if [ -d "$dir" ]; then
-            file="$dir/99-${this_prog%.sh}.conf"
+        local _cfg_replace_append_nohdr=''
+
+        t="$dir/99-${this_prog%.sh}.conf"
+        if [ -f "$t" ]; then
+            file="$t"
+            _cfg_replace_append_nohdr='1'
         fi
 
-        cat >>"$file" <<EOF
-
+        cfg_replace "$user" "$file" "
 Match User $user
 	X11Forwarding no
 	AllowTcpForwarding yes
 	PasswordAuthentication no
 	PubkeyAuthentication yes
 	AuthorizedKeysFile $keys/%u
-EOF
+"
     fi
 }
 
