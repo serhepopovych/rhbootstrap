@@ -5963,9 +5963,7 @@ else
 fi
 
 # reset internal variables
-has_de=''
-has_dm=''
-gtk_based_de=''
+unset has_de has_dm gtk_based_de
 
 # $install_root
 if [ -n "$install_root" ]; then
@@ -6406,7 +6404,7 @@ _EOF
         fi
 
         # Enable display-manager.service and set-default to graphical.target
-        if [ -n "$has_dm" ]; then
+        if [ -n "${has_dm-}" ]; then
             in_chroot "$install_root" "systemctl enable '$has_dm.service'"
             in_chroot "$install_root" 'systemctl set-default graphical.target'
         fi
@@ -8407,6 +8405,7 @@ if [ -n "${has_de-}" ]; then
         *)
             # Xorg
             x11_server='Xorg'
+            has_dm=''
             PKGS="$PKGS xorg-x11-server-Xorg xorg-x11-drivers"
             ;;
     esac
@@ -8482,13 +8481,13 @@ if [ -n "${has_de-}" ]; then
             # light-locker
             [ -z "${pkg_light_locker-}" ] ||
                 PKGS="$PKGS light-locker"
-            has_dm='lightdm'
+            [ -n "${has_dm-x}" ] || has_dm='lightdm'
         fi
 
         if [ -n "${pkg_sddm-}" ]; then
             # sddm
             PKGS="$PKGS sddm"
-            has_dm='sddm'
+            [ -n "${has_dm-x}" ] || has_dm='sddm'
         fi
 
         # chromium
@@ -8497,7 +8496,7 @@ if [ -n "${has_de-}" ]; then
     # evolution
     [ -z "${pkg_evolution-}" ] || PKGS="$PKGS evolution"
 
-    if [ -z "${has_dm-}" ]; then
+    if [ -z "${has_dm-x}" ]; then
         # gdm
         PKGS="$PKGS gdm"
         has_dm='gdm'
