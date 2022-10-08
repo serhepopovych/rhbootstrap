@@ -4326,6 +4326,22 @@ config_fail2ban()
             fi
         fi
 
+        # filter.d/xrdp.conf
+        file="${install_root}etc/fail2ban/filter.d/xrdp.conf"
+        if [ ! -f "$file" ]; then
+            cat >"$file" <<'_EOF'
+
+[Definition]
+failregex = connection received from <HOST> port \d+
+ignoreregex =
+datepattern = %%Y%%m%%d-%%H:%%M:%%S
+
+# DEV NOTES:
+#
+# https://stackoverflow.com/questions/65491510/regexp-for-fail2ban-for-xrdp-log
+_EOF
+        fi
+
         local _cfg_replace_append_nohdr=''
         if [ -d "$dir/jail.d" ]; then
             dir="$dir/jail.d"
