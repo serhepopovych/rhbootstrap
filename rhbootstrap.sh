@@ -659,6 +659,63 @@ systemctl_edit()
     ) || return
 }
 
+# Usage: _yum ...
+_yum()
+{
+    local cmd="exec ${_xargs_yum:+xargs }yum \"\$@\""
+
+    set -- \
+        ${install_langs:+
+            "--setopt=override_install_langs=$install_langs"
+         } \
+        ${nodocs:+
+            '--setopt=tsflags=nodocs'
+         } \
+        ${install_weak_deps:+
+            "--setopt=install_weak_deps=$install_weak_deps"
+         } \
+        "$@" \
+        #
+
+    if [ -n "${_install_root}" ]; then
+        in_chroot "${_install_root}" "$cmd" - "$@"
+    else
+        /bin/sh -c "$cmd" - "$@"
+    fi || return
+}
+
+# Usage: yum ...
+yum()
+{
+    local _install_root=''
+    local _xargs_yum=''
+    _yum "$@" || return
+}
+
+# Usage: in_chroot_yum ...
+in_chroot_yum()
+{
+    local _install_root="${install_root-}"
+    local _xargs_yum=''
+    _yum "$@" || return
+}
+
+# Usage: xargs_yum ...
+xargs_yum()
+{
+    local _install_root=''
+    local _xargs_yum='1'
+    _yum "$@" || return
+}
+
+# Usage: in_chroot_xargs_yum ...
+in_chroot_xargs_yum()
+{
+    local _install_root="${install_root-}"
+    local _xargs_yum='1'
+    _yum "$@" || return
+}
+
 # Usage: return_var() <rc> <result> [<var>]
 return_var()
 {
@@ -5338,6 +5395,7 @@ arch="$(uname -m)"
 
 # rpm(8) install options (default: all)
 install_langs=''
+install_weak_deps='False'
 nodocs=''
 
 # yum(8) repo mirrorlist variable cc (country code) variable (default: none)
@@ -5444,6 +5502,10 @@ Options and their defaults:
 
     --install-langs=${install_langs:-<all>}
         (rpm) install localization files for given languages (e.g. 'en:ru:uk')
+    --install-weak-deps, --no-install-weak-deps
+        (rpm) avoid installing packages weak dependencies. Weak deps are
+        such deps that provide extended functionality to installed package
+        and not mandatory for package functionality
     --nodocs
         (rpm) do not install documentation (i.e. one in /usr/share/doc)
 
@@ -5623,6 +5685,12 @@ while [ $# -gt 0 ]; do
             install_langs="${1##--install-langs=}"
             [ -n "$install_langs" ] || exit
             arg="--install-langs='$install_langs'"
+            ;;
+        --no-install-weak-deps)
+            install_weak_deps='False'
+            ;;
+        --install-weak-deps)
+            install_weak_deps='True'
             ;;
         --nodocs)
             nodocs=1
@@ -6440,7 +6508,7 @@ _EOF
                centos_version_ge $releasemaj 8 ||
                fedora_version_gt $releasemaj 28
             then
-                in_chroot "$install_root" 'yum -y install readonly-root'
+                in_chroot_yum -y install 'readonly-root'
             fi
 
             config_readonly_root
@@ -6549,7 +6617,7 @@ _EOF
         fi
 
         # Clean yum(1) packages and cached data
-        in_chroot "$install_root" 'yum -y clean all'
+        in_chroot_yum -y clean all
 
         # Clean /var/log files
         clean_dir()
@@ -6911,30 +6979,26 @@ distro_rhel()
 
         # Advanced Virtualization
         if [ -n "$repo_advanced_virtualization" ]; then
-            in_chroot "$install_root" "
-                yum -y install '$ADVANCED_VIRTUALIZATION_RELEASE_RPM'
-            " && has_enable 'repo' || repo_advanced_virtualization=''
+            in_chroot_yum -y install "$ADVANCED_VIRTUALIZATION_RELEASE_RPM" &&
+                has_enable 'repo' || repo_advanced_virtualization=''
         fi
 
         # OpenStack
         if [ -n "$repo_openstack" ]; then
-            in_chroot "$install_root" "
-                yum -y install '$OPENSTACK_RELEASE_RPM'
-            " && has_enable 'repo' || repo_openstack=''
+            in_chroot_yum -y install "$OPENSTACK_RELEASE_RPM" &&
+                has_enable 'repo' || repo_openstack=''
         fi
 
         # oVirt
         if [ -n "$repo_ovirt" ]; then
-            in_chroot "$install_root" "
-                yum -y install '$OVIRT_RELEASE_RPM'
-            " && has_enable 'repo' || repo_ovirt=''
+            in_chroot_yum -y install "$OVIRT_RELEASE_RPM" &&
+                has_enable 'repo' || repo_ovirt=''
         fi
 
         # OpenvSwitch
         if [ -n "$repo_nfv_openvswitch" ]; then
-            in_chroot "$install_root" "
-                yum -y install '$NFV_OPENVSWITCH_RELEASE_RPM'
-            " && has_enable 'repo' || repo_nfv_openvswitch=''
+            in_chroot_yum -y install "$NFV_OPENVSWITCH_RELEASE_RPM" &&
+                has_enable 'repo' || repo_nfv_openvswitch=''
         fi
 
         # Repositories might provide updated package versions
@@ -6942,7 +7006,7 @@ distro_rhel()
 
         # Perform package update when requested
         if [ -n "$yum_update" ]; then
-            in_chroot "$install_root" 'yum -y update'
+            in_chroot_yum -y update
         fi
     }
 
@@ -7265,7 +7329,7 @@ PKGS="${PKGS:+$PKGS }tar bzip2 gzip xz"
 
 # Pick repo names on host to configure and use for initial setup
 eval $(
-    yum --noplugins -C repolist | \
+    command yum --noplugins -C repolist | \
     sed -n -e '2,$ s,^\W\?\([^[:space:]/]\+\).*$,\1,p' | \
     sed -n -e '1 s,.\+,baserepo=\0,p' \
            -e '2 s,.\+,updatesrepo=\0,p'
@@ -7351,12 +7415,6 @@ yum -y \
             --enablerepo="$updatesrepo"
             --setopt="$updatesrepo.baseurl=$updatesurl"
          }
-     } \
-    ${install_langs:+
-        --setopt="override_install_langs=$install_langs"
-     } \
-    ${nodocs:+
-        --setopt='tsflags=nodocs'
      } \
     --installroot="$install_root" \
     \
@@ -7508,7 +7566,7 @@ if [ -n "$cc" ]; then
 
     unset f cc_var
 
-    in_chroot "$install_root" 'yum -y update'
+    in_chroot_yum -y update
 fi
 
 ## Minimal install
@@ -8132,11 +8190,12 @@ if [ -n "${grp_virt_host-}" ]; then
             PKGS="$PKGS xen"
 
             # Install before any package from SIG
-            in_chroot "$install_root" \
-                'yum -y install centos-release-xen centos-release-xen-common' \
+            in_chroot_yum -y install \
+                'centos-release-xen' \
+                'centos-release-xen-common' \
                 #
             # Update repos data and possibly installed packages
-            in_chroot "$install_root" 'yum -y update'
+            in_chroot_yum -y update
 
             # libvirt-daemon-xen
             [ -z "${pkg_libvirt-}" ] || PKGS="$PKGS libvirt-daemon-xen"
@@ -8938,7 +8997,7 @@ fi
 ## Install selected packages
 
 for f in $PKGS; do
-    echo "$f"
-done | setarch $basearch xargs chroot "$install_root" yum -y install
+    printf -- '%s\n' "$f"
+done | in_chroot_xargs_yum -y install
 
 exit_installed
