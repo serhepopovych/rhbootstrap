@@ -6233,25 +6233,12 @@ esac
 
 ## Initial setups
 
-# Is system installed?
-installed=''
-
 # Usage: exit_installed
 exit_installed()
 {
-    installed='1'
-    exit 0
-}
-
-exit_handler()
-{
-    local rc=$?
     local t f
 
-    # Do not interrupt exit handler
-    set +e
-
-    if [ -n "${installed-}" ]; then
+    if :; then
         ## Add helpers
         local systemctl_helper="${install_root}bin/systemctl"
 
@@ -6650,6 +6637,17 @@ _EOF
         }
         clean_dir "${install_root}var/log"
     fi
+
+    exit 0
+}
+
+exit_handler()
+{
+    local rc=$?
+    local t
+
+    # Do not interrupt exit handler
+    set +e
 
     if [ -n "${install_root%/}" ]; then
         # Unmount bind-mounted filesystems
