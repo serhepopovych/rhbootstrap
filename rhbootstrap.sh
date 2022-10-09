@@ -4319,6 +4319,28 @@ rdp_layout_ua=us,ru,ua
 _EOF
         fi
 
+        # Add port 3389 to firewall
+        local p1='-A INPUT -p tcp -m state --state NEW -m'
+        local p2='--dport'
+        local p3='22,\|[0-9]\+,22,[0-9]\+\|,22\|22'
+        local p4='-j ACCEPT'
+
+        local regexp="^\($p1\) tcp \($p2\) \($p3\) \($p4\)$"
+        local repl='\1 multiport \2s \3,3389 \4'
+
+        for file in \
+            'iptables' \
+            'ip6tables' \
+            #
+        do
+            file="${install_root}etc/sysconfig/$file"
+            if [ -f "$file" -a -s "$file" ]; then
+                sed -i "$file" \
+                    -e "/[ ,]3389[, ]/ !s/$regexp/$repl/" \
+                    #
+            fi
+        done
+
         # Keep opened sessions when xrdp.service stopped or
         # restarted what is quite common on package upgrade.
         systemctl cat 'xrdp-sesman.service' | \
