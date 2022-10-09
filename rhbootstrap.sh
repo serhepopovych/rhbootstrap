@@ -2,7 +2,7 @@
 
 # MIT License
 #
-# Copyright (c) 2020 Serhey Popovych <serhe.popovych@gmail.com>
+# Copyright (c) 2020-2022 Serhey Popovych <serhe.popovych@gmail.com>
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -5501,7 +5501,7 @@ Options and their defaults:
         Only AMD64 (x86_64) and i386 (i686) supported at the moment
 
     --install-langs=${install_langs:-<all>}
-        (rpm) install localization files for given languages (e.g. 'en:ru:uk')
+        (rpm) install localization files for given languages (e.g. 'en:uk')
     --install-weak-deps, --no-install-weak-deps
         (rpm) avoid installing packages weak dependencies. Weak deps are
         such deps that provide extended functionality to installed package

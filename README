@@ -63,7 +63,11 @@ Options and their defaults:
         Supported RHEL/CentOS/Rocky release version
 
     --install-langs=<all>
-        (rpm) install localization files for given languages (e.g. 'en:ru:uk')
+        (rpm) install localization files for given languages (e.g. 'en:uk')
+    --install-weak-deps, --no-install-weak-deps
+        (rpm) avoid installing packages weak dependencies. Weak deps are
+        such deps that provide extended functionality to installed package
+        and not mandatory for package functionality
     --nodocs
         (rpm) do not install documentation (i.e. one in /usr/share/doc)
 
