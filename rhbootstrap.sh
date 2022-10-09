@@ -632,10 +632,9 @@ systemctl_edit()
         in_chroot "$install_root" \
             "exec >/dev/null 2>&1 </dev/null systemd-run \"\$@\" ${fd:+&}" - \
                 --quiet \
-                --pty \
-                --wait \
+                -t \
                 --collect \
-                --service-type='exec' \
+                --service-type='simple' \
                 --setenv=SYSTEMD_EDITOR='tee' \
                 -- \
             /bin/sh -c "exec <'/${file#$install_root}' systemctl edit \"\$@\"" \
