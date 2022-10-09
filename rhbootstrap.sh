@@ -8310,16 +8310,15 @@ fi
 
 if [ -n "${pkg_xfce-}" ]; then
     PKGS="$PKGS
+        xfconf
+        xfdesktop
+        xfwm4
+
         xfce4-panel
         xfce4-session
         xfce4-settings
 
-        xfconf
-        xfdesktop
-
         xfce-polkit
-
-        xfwm4
 
         xfce4-appfinder
         xfce4-power-manager
@@ -8328,6 +8327,8 @@ if [ -n "${pkg_xfce-}" ]; then
         xfce4-terminal
         xfce4-screensaver
         xfce4-screenshooter
+
+        gnome-themes-standard
     "
 
     if [ -n "${pkg_thunar-}" ]; then
