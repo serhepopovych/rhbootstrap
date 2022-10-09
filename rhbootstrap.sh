@@ -6474,6 +6474,11 @@ _EOF
             in_chroot "$install_root" 'systemctl disable lm_sensors.service'
         fi
 
+        # Disable mcelog as it might fail to run in virtualized environment
+        if [ -n "${pkg_mcelog-}" ]; then
+            in_chroot "$install_root" 'systemctl disable mcelog.service'
+        fi
+
         # Enable display-manager.service and set-default to graphical.target
         if [ -n "${has_dm-}" ]; then
             in_chroot "$install_root" "systemctl enable '$has_dm.service'"
