@@ -4688,6 +4688,49 @@ config_readonly_root()
     fi
 }
 
+# Usage: config_plymouth
+config_plymouth()
+{
+    if [ -n "$plymouth_theme" ]; then
+        eval $(
+            in_chroot "$install_root" "
+                plymouth='/usr/share/plymouth/themes/'
+                # Themes in order of preference
+                for theme in \
+                    '$plymouth_theme' \
+                    'tribar' \
+                    'text' \
+                    'details' \
+                    '' \
+                    #
+                do
+                    if [ -n \"\$theme\" -a \
+                         -f \"\${plymouth}\$theme/\$theme.plymouth\" ] &&
+                       plymouth-set-default-theme \"\$theme\" >/dev/null 2>&1
+                    then
+                        break
+                    fi
+                done
+                echo \"plymouth_theme='\$theme'\"
+            "
+        )
+
+        case "$plymouth_theme" in
+            'tribar'|'text'|'details')
+                plymouth_type='text'
+                ;;
+            '')
+                plymouth_type=''
+                ;;
+            *)
+                plymouth_type='graphical'
+                ;;
+        esac
+    else
+        plymouth_type=''
+    fi
+}
+
 # Usage: config_grub_ipxe
 config_grub_ipxe()
 {
@@ -5449,9 +5492,11 @@ _tmp_mount_min=10
 _tmp_mount=25
 _tmp_mount_max=50
 tmp_mount=${_tmp_mount}
-# Plymouth theme
+# Plymouth
 _plymouth_theme='tribar'
 plymouth_theme=''
+_plymouth_type='text'
+plymouth_type=''
 # Serial line console
 _serial_console='console=ttyS0,115200n8'
 serial_console=''
@@ -6292,6 +6337,9 @@ _EOF
 
         ## Finish installation
 
+        # Pick default theme for plymouth
+        config_plymouth
+
         if [ -n "${pkg_grub2-}" ]; then
             # Add default GRUB config
             t="${install_root}etc/default/grub"
@@ -6352,9 +6400,9 @@ _EOF
                 )
             fi
 
-            # Add "rhgb", "quiet" and remove "nomodeset" to/from
-            # kernel command line options list if plymouth enabled
-            if [ -n "${pkg_plymouth-}" ]; then
+            # Add "rhgb" and "quiet" to kernel command line
+            # options list if plymouth enabled
+            if [ -n "$plymouth_theme" ]; then
                 $(
                     # Source in subshell to not pollute environment
                     . "$t"
@@ -6381,7 +6429,11 @@ GRUB_CMDLINE_LINUX="\${GRUB_CMDLINE_LINUX-} ${opts}"
 _EOF
                     fi
                 )
+            fi
 
+            # Enable KMS if X11 server is local or graphical Plymouth theme.
+            # Note Display Manager always enabled for local X11 server.
+            if [ -n "${has_dm-}" -o "$plymouth_type" = 'graphical' ]; then
                 # Remove "nomodeset"
                 sed -i "$t" \
                     -e '/^GRUB_CMDLINE_LINUX=/!b' \
@@ -6569,26 +6621,6 @@ _EOF
         # Make sure /etc/machine-id is here and empty
         t="${install_root}etc/machine-id" && : >"$t"
 
-        # Pick default theme for plymouth
-        if [ -n "${pkg_plymouth-}" ]; then
-            in_chroot "$install_root" "
-                plymouth='/usr/share/plymouth/themes/'
-                # Themes in order of preference
-                for theme in \
-                    '${plymouth_theme:-${_plymouth_theme}}' \
-                    'tribar' \
-                    'text' \
-                    'details' \
-                    #
-                do
-                    if [ -f \"\${plymouth}\$theme/\$theme.plymouth\" ] &&
-                       plymouth-set-default-theme \"\$theme\" >/dev/null 2>&1
-                    then
-                        break
-                    fi
-                done
-            "
-        fi
 
         # Update initramfs file
         if [ -n "${pkg_dracut-}" ]; then
@@ -7762,11 +7794,11 @@ if [ -n "${pkg_dracut-}" ]; then
     [ -z "${pkg_dracut_tools-}" ] || PKGS="$PKGS dracut-tools"
 fi
 
-if [ -n "${pkg_plymouth-}" ]; then
-    PKGS="$PKGS plymouth"
+if [ -n "${plymouth_theme-}" ]; then
+    PKGS="$PKGS plymouth plymouth-scripts plymouth-system-theme"
 
-    # plymouth-scripts
-    [ -z "${pkg_plymouth_scripts-}" ] || PKGS="$PKGS plymouth-scripts"
+    # Try to enable selected theme
+    eval "pkg_plymouth_theme_$plymouth_theme=1"
 
     # plymouth-plugin-fade-throbber
     [ -z "${pkg_plymouth_plugin_fade_throbber-}" ] ||
@@ -7787,10 +7819,6 @@ if [ -n "${pkg_plymouth-}" ]; then
     [ -z "${pkg_plymouth_plugin_two_step-}" ] ||
         PKGS="$PKGS plymouth-plugin-two-step"
 
-    # plymouth-system-theme
-    pkg_enable plymouth_system_theme
-    [ -z "${pkg_plymouth_system_theme-}" ] ||
-        PKGS="$PKGS plymouth-system-theme"
     # plymouth-theme-charge
     [ -z "${pkg_plymouth_theme_charge-}" ] ||
         PKGS="$PKGS plymouth-theme-charge"
