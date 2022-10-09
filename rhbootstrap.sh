@@ -5265,6 +5265,23 @@ Rx111FFHHXXUUUcdddRRRx111FFHHXXU0c9M/wFoJz1YACgAAA==
 rsync-wrapper.tgz.b64
     }
 
+    # Usage: xsession <unpack_dir>
+    xsession()
+    {
+        local func="${FUNCNAME:-xsession}"
+
+        local unpack_dir="${1:?missing 1st arg to ${func}() <unpack_dir>}"
+
+        if [ -z "${has_dm-}" ]; then
+            if [ -n "${has_de-}" ]; then
+                local t="$unpack_dir/.xsession"
+                echo "${has_de}-session" >"$t" &&
+                    chmod a+rx "$t" ||
+                return
+            fi
+        fi
+    }
+
     # Usage: config_skel <dir>
     config_skel()
     {
@@ -5286,6 +5303,7 @@ rsync-wrapper.tgz.b64
             mc_ini "$d"
             screenrc "$d"
             xfce4 "$d"
+            xsession "$d"
             ssh_agent_start4bashrc "$d"
             rsync_wrapper "$d"
         fi
@@ -8381,7 +8399,7 @@ if [ -n "${pkg_xfce-}" ]; then
     [ -z "${pkg_xfce_xkb_plugin-}" ] ||
         PKGS="$PKGS xfce4-xkb-plugin"
 
-    has_de=1
+    has_de='xfce4'
     gtk_based_de=1
 fi # [ -n "${pkg_xfce-}" ]
 
@@ -8444,7 +8462,7 @@ if [ -n "${pkg_mate-}" ]; then
     # seahorse-caja
     [ -z "${pkg_caja-}" -o -z "${pkg_seahorse-}" ] || PKGS="$PKGS seahorse-caja"
 
-    has_de=1
+    has_de='mate'
     gtk_based_de=1
 fi # [ -n "${pkg_mate-}" ]
 
