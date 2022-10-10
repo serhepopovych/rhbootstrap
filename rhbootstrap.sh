@@ -4943,6 +4943,156 @@ vx46AAAAAAAAAAAAAAAAAAAAAADYizfmrP/PACgAAA==
 05_serial_terminfo.tgz.b64
 }
 
+# Usage: config_grub
+config_grub()
+{
+    if [ -n "${pkg_grub2-}" ]; then
+        # Add default GRUB config
+        local t="${install_root}etc/default/grub"
+
+        if [ ! -s "$t" ]; then
+            cat >"$t" <<'_EOF'
+GRUB_TIMEOUT=5
+GRUB_DISTRIBUTOR="$(sed 's, release .*$,,g' /etc/system-release)"
+GRUB_DEFAULT=saved
+GRUB_DISABLE_SUBMENU=true
+GRUB_TERMINAL="console"
+GRUB_CMDLINE_LINUX="crashkernel=auto rhgb quiet"
+GRUB_DISABLE_RECOVERY="true"
+GRUB_ENABLE_BLSCFG=true
+_EOF
+        fi
+
+        # Disable BLS config type: it is unclear how to update
+        # kernel command line options with it:
+        # https://bugzilla.redhat.com/show_bug.cgi?id=2032680
+        sed -i "$t" \
+            -e 's,^\(GRUB_ENABLE_BLSCFG\)=.*$,\1=false,g' \
+            #
+
+        # Add "zswap.enabled=1" to kernel command line options list
+        if [ -n "$zswap_enabled" ]; then
+            $(
+                # Source in subshell to not pollute environment
+                . "$t"
+
+                if v="${GRUB_CMDLINE_LINUX-}" &&
+                   [ "${v##*zswap.enabled=*}" = "$v" ] &&
+                   v="${GRUB_CMDLINE_LINUX_DEFAULT-}" &&
+                   [ "${v##*zswap.enabled=*}" = "$v" ]
+                then
+                    cat >>"$t" <<'_EOF'
+GRUB_CMDLINE_LINUX_DEFAULT="${GRUB_CMDLINE_LINUX_DEFAULT-} zswap.enabled=1"
+_EOF
+                fi
+            )
+        fi
+
+        # Add "nosmt" to kernel command line options list
+        if [ -n "$nosmt" ]; then
+            $(
+                # Source in subshell to not pollute environment
+                . "$t"
+
+                if v="${GRUB_CMDLINE_LINUX-}" &&
+                   [ "${v##*nosmt*}" = "$v" ] &&
+                   v="${GRUB_CMDLINE_LINUX_DEFAULT-}" &&
+                   [ "${v##*nosmt*}" = "$v" ]
+                then
+                    cat >>"$t" <<'_EOF'
+GRUB_CMDLINE_LINUX="${GRUB_CMDLINE_LINUX-} nosmt"
+_EOF
+                fi
+            )
+        fi
+
+        # Add "rhgb" and "quiet" to kernel command line
+        # options list if plymouth enabled
+        if [ -n "$plymouth_theme" ]; then
+            $(
+                # Source in subshell to not pollute environment
+                . "$t"
+
+                opts=''
+
+                for o in \
+                    'rhgb' \
+                    'quiet' \
+                    #
+                do
+                    if v="${GRUB_CMDLINE_LINUX-}" &&
+                       [ "${v##*${o}*}" = "$v" ] &&
+                       v="${GRUB_CMDLINE_LINUX_DEFAULT-}" &&
+                       [ "${v##*${o}*}" = "$v" ]
+                    then
+                        opts="${opts:+$opts }${o}"
+                    fi
+                done
+
+                if [ -n "$opts" ]; then
+                    cat >>"$t" <<_EOF
+GRUB_CMDLINE_LINUX="\${GRUB_CMDLINE_LINUX-} ${opts}"
+_EOF
+                fi
+            )
+        fi
+
+        # Enable KMS if X11 server is local or graphical Plymouth theme.
+        # Note Display Manager always enabled for local X11 server.
+        if [ -n "${has_dm-}" -o "$plymouth_type" = 'graphical' ]; then
+            # Remove "nomodeset"
+            sed -i "$t" \
+                -e '/^GRUB_CMDLINE_LINUX=/!b' \
+                -e 's,\( \)*nomodeset\( \)*,\1\2,g' \
+                #
+        fi
+
+        # Add support for iPXE on BIOS and EFI systems
+        config_grub_ipxe
+
+        # Add support for serial console
+        config_grub_serial
+
+        # Normalize kernel command line
+        $(
+            # Source in subshell to not pollute environment
+            . "$t"
+
+            # Temporary file name based on interpreter pid
+            f="$t.$$"
+
+            GRUB_CMDLINE_LINUX="$(
+                echo "${GRUB_CMDLINE_LINUX-}" | \
+                sed -e 's,\s\+, ,g' \
+                    -e 's,\(^ \| $\),,' \
+                    #
+            )"
+
+            {
+                # <begin>
+                # GRUB_CMDLINE_LINUX=...
+                sed "$t" \
+                    -e '/^GRUB_CMDLINE_LINUX=/q' \
+                    #
+                # <end>
+                sed "$t" \
+                    -n \
+                    -e '/^GRUB_CMDLINE_LINUX=/,$ {/^GRUB_CMDLINE_LINUX=/d; p}' \
+                    #
+            } | {
+                sed -e '/^GRUB_CMDLINE_LINUX=/!b' \
+                    -e "i GRUB_CMDLINE_LINUX=\"${GRUB_CMDLINE_LINUX-}\"" \
+                    -e 'd' \
+                    #
+            } >"$f"
+
+            if [ -s "$f" ]; then
+                mv -f "$f" "$t"
+            fi
+        )
+    fi
+}
+
 # Usage: config_kernel_symlink_to_root
 config_kernel_symlink_to_root()
 {
@@ -6361,151 +6511,8 @@ _EOF
         # Pick default theme for plymouth
         config_plymouth
 
-        if [ -n "${pkg_grub2-}" ]; then
-            # Add default GRUB config
-            t="${install_root}etc/default/grub"
-
-            if [ ! -s "$t" ]; then
-                cat >"$t" <<'_EOF'
-GRUB_TIMEOUT=5
-GRUB_DISTRIBUTOR="$(sed 's, release .*$,,g' /etc/system-release)"
-GRUB_DEFAULT=saved
-GRUB_DISABLE_SUBMENU=true
-GRUB_TERMINAL="console"
-GRUB_CMDLINE_LINUX="crashkernel=auto rhgb quiet"
-GRUB_DISABLE_RECOVERY="true"
-GRUB_ENABLE_BLSCFG=true
-_EOF
-            fi
-
-            # Disable BLS config type: it is unclear how to update
-            # kernel command line options with it:
-            # https://bugzilla.redhat.com/show_bug.cgi?id=2032680
-            sed -i "$t" \
-                -e 's,^\(GRUB_ENABLE_BLSCFG\)=.*$,\1=false,g' \
-                #
-
-            # Add "zswap.enabled=1" to kernel command line options list
-            if [ -n "$zswap_enabled" ]; then
-                $(
-                    # Source in subshell to not pollute environment
-                    . "$t"
-
-                    if v="${GRUB_CMDLINE_LINUX-}" &&
-                       [ "${v##*zswap.enabled=*}" = "$v" ] &&
-                       v="${GRUB_CMDLINE_LINUX_DEFAULT-}" &&
-                       [ "${v##*zswap.enabled=*}" = "$v" ]
-                    then
-                        cat >>"$t" <<'_EOF'
-GRUB_CMDLINE_LINUX_DEFAULT="${GRUB_CMDLINE_LINUX_DEFAULT-} zswap.enabled=1"
-_EOF
-                    fi
-                )
-            fi
-
-            # Add "nosmt" to kernel command line options list
-            if [ -n "$nosmt" ]; then
-                $(
-                    # Source in subshell to not pollute environment
-                    . "$t"
-
-                    if v="${GRUB_CMDLINE_LINUX-}" &&
-                       [ "${v##*nosmt*}" = "$v" ] &&
-                       v="${GRUB_CMDLINE_LINUX_DEFAULT-}" &&
-                       [ "${v##*nosmt*}" = "$v" ]
-                    then
-                        cat >>"$t" <<'_EOF'
-GRUB_CMDLINE_LINUX="${GRUB_CMDLINE_LINUX-} nosmt"
-_EOF
-                    fi
-                )
-            fi
-
-            # Add "rhgb" and "quiet" to kernel command line
-            # options list if plymouth enabled
-            if [ -n "$plymouth_theme" ]; then
-                $(
-                    # Source in subshell to not pollute environment
-                    . "$t"
-
-                    opts=''
-
-                    for o in \
-                        'rhgb' \
-                        'quiet' \
-                        #
-                    do
-                        if v="${GRUB_CMDLINE_LINUX-}" &&
-                           [ "${v##*${o}*}" = "$v" ] &&
-                           v="${GRUB_CMDLINE_LINUX_DEFAULT-}" &&
-                           [ "${v##*${o}*}" = "$v" ]
-                        then
-                            opts="${opts:+$opts }${o}"
-                        fi
-                    done
-
-                    if [ -n "$opts" ]; then
-                        cat >>"$t" <<_EOF
-GRUB_CMDLINE_LINUX="\${GRUB_CMDLINE_LINUX-} ${opts}"
-_EOF
-                    fi
-                )
-            fi
-
-            # Enable KMS if X11 server is local or graphical Plymouth theme.
-            # Note Display Manager always enabled for local X11 server.
-            if [ -n "${has_dm-}" -o "$plymouth_type" = 'graphical' ]; then
-                # Remove "nomodeset"
-                sed -i "$t" \
-                    -e '/^GRUB_CMDLINE_LINUX=/!b' \
-                    -e 's,\( \)*nomodeset\( \)*,\1\2,g' \
-                    #
-            fi
-
-            # Add support for iPXE on BIOS and EFI systems
-            config_grub_ipxe
-
-            # Add support for serial console
-            config_grub_serial
-
-            # Normalize kernel command line
-            $(
-                # Source in subshell to not pollute environment
-                . "$t"
-
-                # Temporary file name based on interpreter pid
-                f="$t.$$"
-
-                GRUB_CMDLINE_LINUX="$(
-                    echo "${GRUB_CMDLINE_LINUX-}" | \
-                    sed -e 's,\s\+, ,g' \
-                        -e 's,\(^ \| $\),,' \
-                        #
-                )"
-
-                {
-                    # <begin>
-                    # GRUB_CMDLINE_LINUX=...
-                    sed "$t" \
-                        -e '/^GRUB_CMDLINE_LINUX=/q' \
-                        #
-                    # <end>
-                    sed "$t" \
-                        -n \
-                        -e '/^GRUB_CMDLINE_LINUX=/,$ {/^GRUB_CMDLINE_LINUX=/d; p}' \
-                        #
-                } | {
-                    sed -e '/^GRUB_CMDLINE_LINUX=/!b' \
-                        -e "i GRUB_CMDLINE_LINUX=\"${GRUB_CMDLINE_LINUX-}\"" \
-                        -e 'd' \
-                        #
-                } >"$f"
-
-                if [ -s "$f" ]; then
-                    mv -f "$f" "$t"
-                fi
-            )
-        fi
+        # Configure GRUB2
+        config_grub
 
         # Configure login banners
         if [ -n "$login_banners" ]; then
