@@ -679,7 +679,7 @@ _yum()
     if [ -n "${_install_root}" ]; then
         in_chroot "${_install_root}" "$cmd" - "$@"
     else
-        /bin/sh -c "$cmd" - "$@"
+        setarch "$basearch" /bin/sh -c "$cmd" - "$@"
     fi || return
 }
 
@@ -7476,7 +7476,6 @@ case "$distro" in
 esac
 
 # Initial setup
-setarch "$basearch" \
 yum -y \
     ${releasemaj:+
         --releasever=$releasever
