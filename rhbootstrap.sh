@@ -4048,31 +4048,32 @@ rpm-gpg.tgz.b64
 # Usage: config_login_banners
 config_login_banners()
 {
-    # Update /etc/issue, /etc/issue.net and /etc/motd banners
-    $(
-        PRETTY_NAME=''
+    if [ -n "$login_banners" ]; then
+        # Update /etc/issue, /etc/issue.net and /etc/motd banners
+        $(
+            PRETTY_NAME=''
 
-        # Source in subshell to not pollute environment
-        t="${install_root}etc/os-release"
-        [ -f "$t" ] && . "$t" >/dev/null 2>&1 || PRETTY_NAME=''
+            # Source in subshell to not pollute environment
+            t="${install_root}etc/os-release"
+            [ -f "$t" ] && . "$t" >/dev/null 2>&1 || PRETTY_NAME=''
 
-        if [ -z "$PRETTY_NAME" ]; then
-            t="${install_root}etc/redhat-release"
-            PRETTY_NAME="$(
-                sed -n \
-                    -e '1 s/^\(.\+\)\s\+release\s\+\(.*\)$/\1 \2/p' \
-                    "$t" \
-                    #
-            )"
             if [ -z "$PRETTY_NAME" ]; then
-                PRETTY_NAME="$(uname -s)"
+                t="${install_root}etc/redhat-release"
+                PRETTY_NAME="$(
+                    sed -n \
+                        -e '1 s/^\(.\+\)\s\+release\s\+\(.*\)$/\1 \2/p' \
+                        "$t" \
+                        #
+                )"
+                if [ -z "$PRETTY_NAME" ]; then
+                    PRETTY_NAME="$(uname -s)"
+                fi
             fi
-        fi
 
-        # /etc/issue
-        banner="${install_root}etc/issue"
-        if [ -f "$banner" ]; then
-            cat >"$banner" <<_EOF
+            # /etc/issue
+            banner="${install_root}etc/issue"
+            if [ -f "$banner" ]; then
+                cat >"$banner" <<_EOF
 $PRETTY_NAME
 
   Hostname : \n
@@ -4081,22 +4082,23 @@ $PRETTY_NAME
   IPv6     : \6}
 
 _EOF
-        fi
+            fi
 
-        # /etc/issue.net
-        banner="${install_root}etc/issue.net"
-        if [ -f "$banner" ]; then
-            cat >"$banner" <<'_EOF'
+            # /etc/issue.net
+            banner="${install_root}etc/issue.net"
+            if [ -f "$banner" ]; then
+                cat >"$banner" <<'_EOF'
 _EOF
-        fi
+            fi
 
-        # /etc/motd
-        banner="${install_root}etc/motd"
-        if [ -f "$banner" ]; then
-            cat >"$banner" <<'_EOF'
+            # /etc/motd
+            banner="${install_root}etc/motd"
+            if [ -f "$banner" ]; then
+                cat >"$banner" <<'_EOF'
 _EOF
-        fi
-    )
+            fi
+        )
+    fi
 }
 
 # Usage: config_network
@@ -5590,7 +5592,8 @@ config_flatpak()
 # Usage: config_autopass
 config_autopass()
 {
-    local unpack_dir="$install_root"
+    if [ -n "$autopassword_root" ]; then
+        local unpack_dir="$install_root"
 # md5(autopass.tgz.b64) = 9e9ac091b483fac9c63c40950b935faf
 [ -d "$unpack_dir" ] || install -d "$unpack_dir"
 base64 -d -i <<'autopass.tgz.b64' | tar -zxf - -C "$unpack_dir"
@@ -5614,6 +5617,9 @@ GeIIB7nCiA5DBFyeil2VQ6/Pfp2OMcol6pSY8QJHXEiXtEufuNEUNevS1bhHfiZqFE9flunWYMm1
 QmtJnFb8BxlWWFfeCJXLEUoT3dPxqnZBvHur2hORYRQ0nv5Uo2c5ldTDWdZnv3FJr+Vo+vBhv3eL
 eXh4eHh4eHh4eHh4eHh4eHh4eHh4eHi8Mv4G9ElytgAoAAA=
 autopass.tgz.b64
+
+        in_chroot "$install_root" 'systemctl enable autopass.service'
+    fi
 }
 
 ## Parse options
@@ -6515,9 +6521,7 @@ _EOF
         config_grub
 
         # Configure login banners
-        if [ -n "$login_banners" ]; then
-            config_login_banners
-        fi
+        config_login_banners
 
         # Configure networking
         config_network
@@ -6609,11 +6613,7 @@ _EOF
         fi
 
         # $autopassword_root
-        if [ -n "$autopassword_root" ]; then
-            config_autopass
-
-            in_chroot "$install_root" 'systemctl enable autopass.service'
-        fi
+        config_autopass
 
         # $passwordless_root
         if [ -n "$passwordless_root" ]; then
@@ -6649,7 +6649,6 @@ _EOF
         # Make sure /etc/machine-id is here and empty
         t="${install_root}etc/machine-id" && : >"$t"
 
-
         # Update initramfs file
         if [ -n "${pkg_dracut-}" ]; then
             in_chroot "$install_root" '
@@ -6657,7 +6656,7 @@ _EOF
             '
         fi
 
-        # Update GRUB configuration file
+        # Update GRUB2 configuration file
         if [ -n "${pkg_grub2-}" ]; then
             in_chroot "$install_root" '
                  [ ! -L /etc/grub2.cfg ] ||
