@@ -6540,8 +6540,6 @@ _EOF
         # Configure login banners
         config_login_banners
 
-        # Configure networking
-        config_network
 
         # Configure X11 server
         case "${x11_server-}" in
@@ -6634,6 +6632,9 @@ _EOF
 
         # Configure flatpak repositories
         config_flatpak
+
+        # Configure networking
+        config_network
 
         # Termiate bash after given seconds of inactivity (auto-logout)
         if [ -x '/bin/bash' ]; then
