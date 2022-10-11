@@ -665,13 +665,13 @@ _yum()
 
     set -- \
         ${install_langs:+
-            "--setopt=override_install_langs=$install_langs"
+            ${has_setopt:+"--setopt=override_install_langs=$install_langs"}
          } \
         ${nodocs:+
-            '--setopt=tsflags=nodocs'
+            ${has_setopt:+'--setopt=tsflags=nodocs'}
          } \
         ${install_weak_deps:+
-            "--setopt=install_weak_deps=$install_weak_deps"
+            ${has_setopt:+"--setopt=install_weak_deps=$install_weak_deps"}
          } \
         "$@" \
         #
@@ -5652,6 +5652,8 @@ nodocs=''
 
 # yum(8) repo mirrorlist variable cc (country code) variable (default: none)
 cc=''
+# yum(8) has --setopt=
+has_setopt='1'
 
 # Configuration file with packages/groups definitions
 config=''
@@ -7131,8 +7133,13 @@ distro_rhel()
         fi
     fi
 
-    if centos_version_lt $releasemaj 4; then
-        fatal 'no support for CentOS before 4 (no yum?)\n'
+    if is_centos; then
+        if version_le $releasever 6.0; then
+            if [ $releasemaj -lt 4 ]; then
+                fatal 'no support for CentOS before 4 (no yum?)\n'
+            fi
+            has_setopt=''
+        fi
     fi
 
     if version_ge $releasever 8.6; then
@@ -7310,8 +7317,12 @@ distro_fedora()
     else
         releasemaj="${releasever%%.*}"
 
-        [ $releasemaj -ge 10 ] ||
-            fatal 'no support for Fedora before 10 (Fedora Core?)\n'
+        if [ $releasemaj -lt 12 ]; then
+            if [ $releasemaj -lt 10 ]; then
+                fatal 'no support for Fedora before 10 (Fedora Core?)\n'
+            fi
+            has_setopt=''
+        fi
     fi
 
     # $subdir
