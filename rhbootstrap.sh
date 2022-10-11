@@ -7405,7 +7405,7 @@ if [ -n "$has_glibc_langpack" ]; then
 fi
 
 # Always install archivers
-PKGS="${PKGS:+$PKGS }tar bzip2 gzip xz"
+PKGS="${PKGS:+$PKGS }tar bzip2 gzip"
 
 # Pick repo names on host to configure and use for initial setup
 eval $(
