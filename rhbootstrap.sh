@@ -6501,13 +6501,16 @@ case "${1-}" in
     *) exit 1
 esac
 
-while :; do
-    shift || exit
-    name="${1-}" && name="${name%.*}"
-    [ -z "$name" ] || chkconfig "$name" "$cmd"
+rc=''
+while shift && [ $# -gt 0 ]; do
+    if name="${1%.*}" && [ -n "$name" ]; then
+        chkconfig "$name" "$cmd" && ret=0 || ret=$?
+        [ -e "/etc/init.d/$name" ] || ret=0
+        : $((rc += ret))
+    fi
 done
 
-exit 0
+exit ${rc:-123}
 _EOF
             chmod a+rx "$systemctl_helper" ||:
         fi
