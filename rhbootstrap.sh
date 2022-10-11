@@ -7141,7 +7141,7 @@ distro_rhel()
     {
         local subdir="${subdir:+$subdir/}"
 
-        local templ='http://%s/%s%s/%s'
+        local templ='http://%s/%s%s/%s/'
         local base updates
 
         base="$(
