@@ -7227,7 +7227,7 @@ distro_rhel()
         # Never reached
         unset is_archive
     fi
-    if [ -n "${is_archive-x}" ]; then
+    if ! [ -n "${is_archive+x}" ]; then
         fatal "$distro $releasever isn't available for download\n"
     fi
     eval "$url"
