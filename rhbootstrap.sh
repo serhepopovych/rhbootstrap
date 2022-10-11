@@ -4653,61 +4653,75 @@ Match User $user
 # Usage: config_readonly_root
 config_readonly_root()
 {
-    local t
-
-    # Make postfix readonly root aware
-    if pkg_is_installed postfix; then
-        t="${install_root}etc/rwtab.d/postfix"
-        [ -s "$t" ] || {
-            echo 'dirs /var/lib/postfix'
-        } >"$t"
-    fi
-
-    # Make rsyslog readonly root aware
-    if pkg_is_installed rsyslog; then
-        t="${install_root}etc/rwtab.d/rsyslog"
-        [ -s "$t" ] || {
-            echo 'dirs /var/lib/rsyslog'
-        } >"$t"
-    fi
-
-    # Make gssproxy readonly root aware
-    if pkg_is_installed gssproxy; then
-        t="${install_root}etc/rwtab.d/gssproxy"
-        [ -s "$t" ] || {
-            echo 'dirs /var/lib/gssproxy'
-        } >"$t"
-    fi
-
-    # Make /etc writable to update config files (mainly /etc/passwd)
-    t="${install_root}etc/rwtab.d/_etc"
-    [ -s "$t" ] || {
-        echo 'files /etc'
-        # required by systemd-journal-catalog-update.service
-        # started when /etc is writable
-        echo 'empty /var/lib/systemd/catalog'
-    } >"$t"
-
-    # Fix systemd-tmpfiles-setup.service on CentOS/RHEL 7;
-    # see https://bugzilla.redhat.com/show_bug.cgi?id=1207083
-    if centos_version_eq $releasemaj 7; then
-        # /usr/lib/tmpfiles.d/legacy.conf: /var/lock -> ../run/lock
-        ln -snf '../run/lock' "${install_root}var/lock"
-
-        t="${install_root}usr/lib/tmpfiles.d/legacy.conf"
-        if [ -s "$t" ]; then
-            sed -e 's,^\(L\s\+/var/lock\),#\1,' "$t" \
-                >"${install_root}etc/tmpfiles.d/${t##*/}"
+    if [ -n "$readonly_root" ]; then
+        if rocky_version_ge $releasemaj 8 ||
+           centos_version_ge $releasemaj 8 ||
+           fedora_version_gt $releasemaj 28
+        then
+           in_chroot_yum -y install 'readonly-root'
         fi
 
-        # /usr/lib/tmpfiles.d/rpm.conf: rm -f /var/lib/rpm/__db.*
-        rm -f "${install_root}var/lib/rpm"/__db.*
+        local t
 
-        t="${install_root}usr/lib/tmpfiles.d/rpm.conf"
-        if [ -s "$t" ]; then
-            sed -e 's,^\(r\s\+/var/lib/rpm/__db\.\*\),#\1,' "$t" \
-                >"${install_root}etc/tmpfiles.d/${t##*/}"
+        # Make postfix readonly root aware
+        if pkg_is_installed postfix; then
+            t="${install_root}etc/rwtab.d/postfix"
+            [ -s "$t" ] || {
+                echo 'dirs /var/lib/postfix'
+            } >"$t"
         fi
+
+        # Make rsyslog readonly root aware
+        if pkg_is_installed rsyslog; then
+            t="${install_root}etc/rwtab.d/rsyslog"
+            [ -s "$t" ] || {
+                echo 'dirs /var/lib/rsyslog'
+            } >"$t"
+        fi
+
+        # Make gssproxy readonly root aware
+        if pkg_is_installed gssproxy; then
+            t="${install_root}etc/rwtab.d/gssproxy"
+            [ -s "$t" ] || {
+                echo 'dirs /var/lib/gssproxy'
+            } >"$t"
+        fi
+
+        # Make /etc writable to update config files (mainly /etc/passwd)
+        t="${install_root}etc/rwtab.d/_etc"
+        [ -s "$t" ] || {
+            echo 'files /etc'
+            # required by systemd-journal-catalog-update.service
+            # started when /etc is writable
+            echo 'empty /var/lib/systemd/catalog'
+        } >"$t"
+
+        # Fix systemd-tmpfiles-setup.service on CentOS/RHEL 7;
+        # see https://bugzilla.redhat.com/show_bug.cgi?id=1207083
+        if centos_version_eq $releasemaj 7; then
+            # /usr/lib/tmpfiles.d/legacy.conf: /var/lock -> ../run/lock
+            ln -snf '../run/lock' "${install_root}var/lock"
+
+            t="${install_root}usr/lib/tmpfiles.d/legacy.conf"
+            if [ -s "$t" ]; then
+                sed -e 's,^\(L\s\+/var/lock\),#\1,' "$t" \
+                    >"${install_root}etc/tmpfiles.d/${t##*/}"
+            fi
+
+            # /usr/lib/tmpfiles.d/rpm.conf: rm -f /var/lib/rpm/__db.*
+            rm -f "${install_root}var/lib/rpm"/__db.*
+
+            t="${install_root}usr/lib/tmpfiles.d/rpm.conf"
+            if [ -s "$t" ]; then
+                sed -e 's,^\(r\s\+/var/lib/rpm/__db\.\*\),#\1,' "$t" \
+                    >"${install_root}etc/tmpfiles.d/${t##*/}"
+            fi
+        fi
+
+        # Enable $readonly_root
+        sed -i "${install_root}etc/sysconfig/readonly-root" \
+            -e 's/^\(READONLY=\)\w\+\(\s*\)$/\1yes\2/' \
+            #
     fi
 }
 
@@ -6600,20 +6614,7 @@ _EOF
         fi
 
         # $readonly_root
-        if [ -n "$readonly_root" ]; then
-            if rocky_version_ge $releasemaj 8 ||
-               centos_version_ge $releasemaj 8 ||
-               fedora_version_gt $releasemaj 28
-            then
-                in_chroot_yum -y install 'readonly-root'
-            fi
-
-            config_readonly_root
-
-            sed -i "${install_root}etc/sysconfig/readonly-root" \
-                -e 's/^\(READONLY=\)\w\+\(\s*\)$/\1yes\2/' \
-                #
-        fi
+        config_readonly_root
 
         # $autopassword_root
         config_autopass
