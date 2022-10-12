@@ -6659,7 +6659,18 @@ _EOF
         # Update initramfs file
         if [ -n "${pkg_dracut-}" ]; then
             in_chroot "$install_root" '
-                dracut --force --regenerate-all
+                if dracut --help 2>&1 | grep -q -- "--regenerate-all"; then
+                    exec dracut --force --quiet --regenerate-all
+                else
+                    for kmod in /lib/modules/*; do
+                        if [ -d "$kmod" ] &&
+                           kver="${kmod##*/}" &&
+                           [ -n "$kver" -a -f "/boot/vmlinuz-$kver" ]
+                        then
+                            dracut --force --quiet "/boot/initramfs-$kver.img" "$kver"
+                        fi
+                    done
+                fi
             '
         fi
 
@@ -7537,6 +7548,13 @@ yum -y \
     install '@core' \
     ${PKGS-} \
     #
+
+f="${install_root}etc/fstab"
+if [ ! -e "$f" ]; then
+    # Remove broken symlink
+    rm -f "$f" ||:
+    : >"$f"
+fi
 
 if [ -n "${install_root%/}" ]; then
     # Convert rpmdb(1) from host to target format
