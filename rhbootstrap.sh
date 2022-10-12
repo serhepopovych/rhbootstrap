@@ -7393,7 +7393,11 @@ distro_fedora()
     # No external repositories
     distro_disable_extra_repos
 
-    [ $releasemaj -lt 24 ] || has_glibc_langpack=1
+    if [ $releasemaj -ge 24 ]; then
+        has_glibc_langpack=1
+        # Explicitly add systemd-udev package
+        PKGS="${PKGS:+$PKGS }systemd-udev"
+    fi
 
     # Additional packages that are (not) in @core package group
     PKGS="${PKGS:+$PKGS }cronie rsyslog chrony"
