@@ -4343,14 +4343,17 @@ _EOF
             fi
         done
 
-        # Keep opened sessions when xrdp.service stopped or
-        # restarted what is quite common on package upgrade.
-        systemctl cat 'xrdp-sesman.service' | \
-            sed -e '/^\(BindsTo\|StopWhenUnneeded\)=/d' | \
-        systemctl_edit -- --full 'xrdp-sesman.service'
+        if is_rocky || is_centos || fedora_version_ge $releasemaj 18; then
+            # Keep opened sessions when xrdp.service stopped or
+            # restarted what is quite common on package upgrade.
+            systemctl cat 'xrdp-sesman.service' | \
+                sed -e '/^\(BindsTo\|StopWhenUnneeded\)=/d' | \
+            systemctl_edit -- --full 'xrdp-sesman.service'
+
+            in_chroot "$install_root" 'systemctl enable xrdp-sesman.service'
+        fi
 
         in_chroot "$install_root" 'systemctl enable xrdp.service'
-        in_chroot "$install_root" 'systemctl enable xrdp-sesman.service'
     fi
 }
 
@@ -7800,6 +7803,8 @@ elif is_fedora; then
                                             if [ $releasemaj -le 12 ]; then
                                                 if [ $releasemaj -le 11 ]; then
                                                     pkg_dracut=
+                                                    [ "${x11_server-}" != 'Xrdp' ] ||
+                                                        x11_server='Xorg'
                                                 fi # <= 11
                                                 pkg_vdpau=
                                             fi # <= 12
