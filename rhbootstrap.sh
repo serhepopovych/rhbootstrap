@@ -7793,19 +7793,25 @@ elif is_fedora; then
                 if [ $releasemaj -le 24 ]; then
                     if [ $releasemaj -le 19 ]; then
                         if [ $releasemaj -le 18 ]; then
-                            if [ $releasemaj -le 16 ]; then
-                                if [ $releasemaj -le 15 ]; then
-                                    if [ $releasemaj -le 14 ]; then
-                                        if [ $releasemaj -le 12 ]; then
-                                            pkg_vdpau=
-                                        fi # < 12
-                                        pkg_va=
-                                    fi # <= 14
-                                    [ "${x11_server-}" != 'Xspice' ] ||
-                                        x11_server='Xorg'
-                                fi # <= 15
-                                pkg_ipxe_bootimgs=
-                            fi # <= 16
+                            if [ $releasemaj -le 17 ]; then
+                                if [ $releasemaj -le 16 ]; then
+                                    if [ $releasemaj -le 15 ]; then
+                                        if [ $releasemaj -le 14 ]; then
+                                            if [ $releasemaj -le 12 ]; then
+                                                if [ $releasemaj -le 11 ]; then
+                                                    pkg_dracut=
+                                                fi # <= 11
+                                                pkg_vdpau=
+                                            fi # <= 12
+                                            pkg_va=
+                                        fi # <= 14
+                                        [ "${x11_server-}" != 'Xspice' ] ||
+                                            x11_server='Xorg'
+                                    fi # <= 15
+                                    pkg_ipxe_bootimgs=
+                                fi # <= 16
+                                pkg_shim=
+                            fi # <= 17
                             pkg_va_vdpau_driver=
                         fi # <= 18
                         [ "${x11_server-}" != 'x2go' ] || x11_server='Xorg'
