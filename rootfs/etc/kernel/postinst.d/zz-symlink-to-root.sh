@@ -90,7 +90,21 @@ export LANG=C
 KERNEL_VERSION="${1:?missing KERNEL_VERSION}"
 KERNEL_IMAGE="${2:?missing KERNEL_IMAGE}"
 
-INITRD_IMAGE="${KERNEL_IMAGE%/*}/initramfs-${KERNEL_VERSION}.img"
+KERNEL_IMAGE_DIR="${KERNEL_IMAGE%/*}"
+
+for INITRD_IMAGE in \
+    'initramfs' \
+    'initrd' \
+    '' \
+    #
+do
+    [ -n "$INITRD_IMAGE" ] || exit
+
+    INITRD_IMAGE="${KERNEL_IMAGE_DIR}/${INITRD_IMAGE}-${KERNEL_VERSION}.img"
+    [ -f "$INITRD_IMAGE" ] || continue
+
+    break
+done
 
 # Usage: exit_handler
 exit_handler()
@@ -99,29 +113,36 @@ exit_handler()
 
     set +e
 
-    [ $rc -lt 125 ] ||
-        mv -f '/vmlinuz.old' '/vmlinuz' 2>/dev/null
-    [ $rc -lt 126 ] ||
-        mv -f '/initrd.img.old' '/initrd.img' 2>/dev/null
+    if [ $rc -ne 0 ]; then
+        if [ -n "$has_vmlinuz_old" ]; then
+            mv -f '/vmlinuz.old' '/vmlinuz' 2>/dev/null
+        fi
+        if [ -n "$has_initrd_old" ]; then
+            mv -f '/initrd.img.old' '/initrd.img' 2>/dev/null
+        fi
+    fi
 
     return $rc
 }
 trap 'exit_handler' EXIT
+
+has_vmlinuz_old=''
+has_initrd_old=''
 
 ## kernel
 
 [ -f "$KERNEL_IMAGE" ] || exit 51
 
 relative_path "$KERNEL_IMAGE" '/vmlinuz' t || exit 52
-mv -f '/vmlinuz' '/vmlinuz.old' 2>/dev/null && rc=125 || rc=53
-ln -sf "$t" '/vmlinuz' || exit $rc
+mv -f '/vmlinuz' '/vmlinuz.old' 2>/dev/null && has_vmlinuz_old='1' ||:
+ln -sf "$t" '/vmlinuz' || exit 53
 
 ## initrd
 
 [ -f "$INITRD_IMAGE" ] || exit 61
 
 relative_path "$INITRD_IMAGE" '/initrd.img' t || exit 62
-mv -f '/initrd.img' '/initrd.img.old' 2>/dev/null && rc=126 || rc=63
-ln -sf "$t" '/initrd.img' || exit $rc
+mv -f '/initrd.img' '/initrd.img.old' 2>/dev/null && has_initrd_old='1' ||:
+ln -sf "$t" '/initrd.img' || exit 63
 
 exit 0
