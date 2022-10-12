@@ -4805,10 +4805,9 @@ config_grub_ipxe()
         copy_ipxe_file 'ipxe.lkrn'
 
         unset -f copy_ipxe_file
-    fi
 
-    # Add helper that generates boot menu entries for iPXE
-    local unpack_dir="$install_root"
+        # Add helper that generates boot menu entries for iPXE
+        local unpack_dir="$install_root"
 # md5(20_ipxe.tgz.b64) = 3b7d80ce1ef0d10d274beaffb7335918
 [ -d "$unpack_dir" ] || install -d "$unpack_dir"
 base64 -d -i <<'20_ipxe.tgz.b64' | tar -zxf - -C "$unpack_dir"
@@ -4823,6 +4822,7 @@ Oa8gOqwaPb3d8lKc4VO4TXn2eOCT/mQsACkc7O6Ojw9ZibpB7cwlRG/QXVRmAWEo6IYKvQjiuLFo
 LEThpyyEtaBv865Y5+ruPVqxtpwLpYtKTNHcNBdmZisW6vkxbjbwbzdRKN0s+6N7GvB3yX/+9etG
 CCGEEEIIIYQQQgghhBBCCCGEEELIg/oK2ED29AAoAAA=
 20_ipxe.tgz.b64
+    fi
 }
 
 # Usage: config_grub_serial
@@ -7761,6 +7761,7 @@ pkg_wireshark_gnome=1
             :
         else
             pkg_cockpit=
+            pkg_ipxe_bootimgs=
         fi
     fi
 elif is_fedora; then
@@ -7770,16 +7771,19 @@ elif is_fedora; then
                 if [ $releasemaj -le 24 ]; then
                     if [ $releasemaj -le 19 ]; then
                         if [ $releasemaj -le 18 ]; then
-                            if [ $releasemaj -le 15 ]; then
-                                if [ $releasemaj -le 14 ]; then
-                                    if [ $releasemaj -le 12 ]; then
-                                        pkg_vdpau=
-                                    fi # < 12
-                                    pkg_va=
-                                fi # <= 14
-                                [ "${x11_server-}" != 'Xspice' ] ||
-                                    x11_server='Xorg'
-                            fi # <= 15
+                            if [ $releasemaj -le 16 ]; then
+                                if [ $releasemaj -le 15 ]; then
+                                    if [ $releasemaj -le 14 ]; then
+                                        if [ $releasemaj -le 12 ]; then
+                                            pkg_vdpau=
+                                        fi # < 12
+                                        pkg_va=
+                                    fi # <= 14
+                                    [ "${x11_server-}" != 'Xspice' ] ||
+                                        x11_server='Xorg'
+                                fi # <= 15
+                                pkg_ipxe_bootimgs=
+                            fi # <= 16
                             pkg_va_vdpau_driver=
                         fi # <= 18
                         [ "${x11_server-}" != 'x2go' ] || x11_server='Xorg'
