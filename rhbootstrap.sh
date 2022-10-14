@@ -57,6 +57,8 @@ else
 fi
 this_dir="$(cd "$this_dir" && echo "$PWD")"
 
+readonly this this_dir this_prog
+
 # Set program name unless already set
 [ -n "${prog_name-}" ] &&
 [ -n "${prog_name##*[^[:alnum:]_]*}" ] &&
@@ -64,8 +66,8 @@ this_dir="$(cd "$this_dir" && echo "$PWD")"
 
 readonly _prog_name="$prog_name"
 
-prog_name="${prog_name%\.sh}"
-prog_version='1.0'
+readonly prog_name="${prog_name%\.sh}"
+readonly prog_version='1.0'
 
 # Verbosity: report errors by default
 [ -n "${V-}" ] && [ "$V" -le 0 -o "$V" -ge 0 ] 2>/dev/null || V=1
@@ -5657,8 +5659,6 @@ nodocs=''
 
 # yum(8) repo mirrorlist variable cc (country code) variable (default: none)
 cc=''
-# yum(8) has --setopt=
-has_setopt='1'
 
 # Configuration file with packages/groups definitions
 config=''
@@ -5686,17 +5686,17 @@ passwordless_root=''
 # Autopassword root
 autopassword_root=''
 # Mount /tmp as tmpfs with up to ${_tmp_mount} of system RAM in size
-_tmp_mount_min=10
-_tmp_mount=25
-_tmp_mount_max=50
+readonly _tmp_mount_min=10
+readonly _tmp_mount=25
+readonly _tmp_mount_max=50
 tmp_mount=${_tmp_mount}
 # Plymouth
-_plymouth_theme='tribar'
+readonly _plymouth_theme='tribar'
 plymouth_theme=''
-_plymouth_type='text'
+readonly _plymouth_type='text'
 plymouth_type=''
 # Serial line console
-_serial_console='console=ttyS0,115200n8'
+readonly _serial_console='console=ttyS0,115200n8'
 serial_console=''
 # Add "zswap.enabled=1" to kernel command line option list
 zswap_enabled=''
@@ -5707,7 +5707,7 @@ login_banners=''
 # SELinux context autorelabel
 autorelabel=''
 # Recursive name (DNS) resolution servers
-_nameservers='1.1.1.1 8.8.8.8'
+readonly _nameservers='1.1.1.1 8.8.8.8'
 nameservers=''
 # DNS split using NetworkManager and dnsmasq
 nm_dnsmasq_split=''
@@ -5715,22 +5715,22 @@ nm_dnsmasq_split=''
 # KVM nesting
 kvm_nested=''
 # libvirt qemu user to run as
-_libvirt_qemu_user='qemu'
+readonly _libvirt_qemu_user='qemu'
 libvirt_qemu_user=''
 # libvirt UNIX socket group ownership
-_libvirt_unix_group='libvirt'
+readonly _libvirt_unix_group='libvirt'
 libvirt_unix_group=''
 # libvirt UNIX R/O socket permissions
-_libvirt_unix_ro_perms='0777'
+readonly _libvirt_unix_ro_perms='0777'
 libvirt_unix_ro_perms=''
 # libvirt UNIX R/W socket permissions
-_libvirt_unix_rw_perms='0770'
+readonly _libvirt_unix_rw_perms='0770'
 libvirt_unix_rw_perms=''
 # libvirt UNIX R/O authentication
-_libvirt_unix_auth_ro='none'
+readonly _libvirt_unix_auth_ro='none'
 libvirt_unix_auth_ro=''
 # libvirt UNIX R/W authentication
-_libvirt_unix_auth_rw='none'
+readonly _libvirt_unix_auth_rw='none'
 libvirt_unix_auth_rw=''
 
 # Force
@@ -6266,29 +6266,6 @@ trap - EXIT
 # Must be started by root (uid 0)
 [ "$(id -u)" = 0 ] || fatal 'Only root (uid 0) can use this service\n'
 
-# $distro
-case "$distro" in
-    'fedora') ;;
-    'centos') ;;
-    'rocky') ;;
-    *)      fatal 'Unsupported distribution "%s"\n' "$distro" ;;
-esac
-
-# $arch, $basearch
-case "$arch" in
-    'x86_64') basearch='x86_64' ;;
-    i?86)   basearch='i386'   ;;
-    *)      fatal 'Unsupported architecture "%s"\n' "$arch" ;;
-esac
-
-# $selinux
-case "$selinux" in
-    'enforcing'|'permissive'|'disabled'|'') ;;
-    *) fatal 'Unknown SELinux mode "%s"\n' "$selinux" ;;
-esac
-
-# $cc handled after release package(s) installation
-
 # $config
 if [ -n "$config" ]; then
     if [ -z "${config##*://*}" ]; then
@@ -6299,16 +6276,53 @@ if [ -n "$config" ]; then
         unset url
     fi
     if [ -f "$config" ]; then
-        . "$config" || fatal 'unable to include "%s" config\n' "$config"
+        vars="$(
+            # Usage: env [<filter>] [<with_val>]
+            env()
+            {
+                export -p | while read -r var; do
+                    var="${var#export }"
+                    t="${var%%=*}"
+                    case "$t" in
+                        'PATH'|'TERM'|'HOME'|'PWD')
+                            # No shell specific variables
+                            [ -z "${1-}" ] || continue
+                            ;;
+                        _*|has_*|is_*|this_*|prog_*|V)
+                            # No internal variables
+                            [ -z "${1-}" ] || continue
+                            ;;
+                        pkg_*|grp_*)
+                            # No packages and groups for minimal install
+                            [ -z "${1-}" -o -z "$minimal_install" ] || continue
+                            ;;
+                        '')
+                            # No empty variable names (never happens)
+                            continue
+                            ;;
+                    esac
+                    [ -n "${2-}" ] || var="$t"
+                    echo "$var"
+                done
+            }
+
+            for var in $(env); do
+                unset "$var"
+            done
+
+            set -a
+            . "$config" >/dev/null || exit
+
+            env 'filter' 'with_val'
+        )" || fatal 'unable to include "%s" config\n' "$config"
+        eval "$vars"
+        unset vars
     else
-        fatal 'canot find "%s" config\n' "$config"
+        fatal 'cannot find "%s" config\n' "$config"
     fi
 else
     minimal_install=1
 fi
-
-# reset internal variables
-unset has_de has_dm gtk_based_de
 
 # $install_root
 if [ -n "$install_root" ]; then
@@ -6416,8 +6430,34 @@ EOF
     install -D "$d" "${d%.*}"
     rm -f "$d" ||:
 
-    unset f d e
+    unset f d
 fi
+
+# $cc handled after release package(s) installation
+
+# $distro
+
+case "$distro" in
+    'fedora') ;;
+    'centos') ;;
+    'rocky') ;;
+    *)      fatal 'Unsupported distribution "%s"\n' "$distro" ;;
+esac
+
+# $arch, $basearch
+
+case "$arch" in
+    'x86_64') basearch='x86_64' ;;
+    i?86)   basearch='i386'   ;;
+    *)      fatal 'Unsupported architecture "%s"\n' "$arch" ;;
+esac
+
+# $selinux
+
+case "$selinux" in
+    'enforcing'|'permissive'|'disabled'|'') ;;
+    *) fatal 'Unknown SELinux mode "%s"\n' "$selinux" ;;
+esac
 
 # $passwordless_root or $autopassword_root
 
@@ -6546,7 +6586,6 @@ _EOF
 
         # Configure login banners
         config_login_banners
-
 
         # Configure X11 server
         case "${x11_server-}" in
@@ -6796,6 +6835,9 @@ is_archive=''
 has_glibc_langpack=''
 has_repo=''
 has_epel=''
+has_setopt='1'
+# reset variables
+unset has_de has_dm gtk_based_de
 
 # Usage: distro_disable_extra_repos
 distro_disable_extra_repos()
@@ -7468,7 +7510,6 @@ rpm_gpg_dir="$(mktemp -d -p '' 'rpm-gpg.XXXXXXXX')" || exit
 config_rpm_gpg
 
 # Prepare filesystem
-
 if [ -n "${install_root%/}" ]; then
     # Bind mount proc, sys and dev filesystems
     for f in 'proc' 'sys' 'dev'; do
