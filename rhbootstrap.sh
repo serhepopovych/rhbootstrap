@@ -6545,7 +6545,7 @@ esac
 
 ################################################################################
 
-## Initial setups
+## Final installation steps
 
 # Usage: exit_installed
 exit_installed()
@@ -6588,8 +6588,6 @@ exit ${rc:-123}
 _EOF
             chmod a+rx "$systemctl_helper" ||:
         fi
-
-        ## Finish installation
 
         # Pick default theme for plymouth
         config_plymouth
@@ -6806,6 +6804,8 @@ _EOF
     exit 0
 }
 
+## Initial installation setups
+
 exit_handler()
 {
     local rc=$?
@@ -6832,8 +6832,6 @@ exit_handler()
     return $rc
 }
 trap 'exit_handler' EXIT
-
-## Install core components
 
 # start timestamp
 start_timestamp="$(date '+%s')"
@@ -7482,6 +7480,8 @@ distro_fedora()
     PKGS="${PKGS:+$PKGS }cronie rsyslog chrony"
     PKGS="${PKGS:+$PKGS }postfix logrotate sudo"
 }
+
+## Install core components
 
 distro_${distro}
 
