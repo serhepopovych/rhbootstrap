@@ -4648,7 +4648,7 @@ EOF
 
         local _cfg_replace_append_nohdr=''
 
-        t="$dir/99-$prog_name.conf"
+        t="$file.d/99-$prog_name.conf"
         if [ -f "$t" ]; then
             file="$t"
             _cfg_replace_append_nohdr='1'
