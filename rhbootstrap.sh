@@ -4223,8 +4223,10 @@ dnsmasq.tgz.b64
     }
     "nm_dnsmasq_split_${nm_dnsmasq_split:-0}"
 
+    local t
+
     # Configure nameserver(s) in resolv.conf
-    local t="${install_root}etc/resolv.conf"
+    t="${install_root}etc/resolv.conf"
     if [ -n "${nameservers}${install_root%/}" ]; then
         : >"$t"
     fi
@@ -4235,8 +4237,16 @@ dnsmasq.tgz.b64
         done
     fi
 
+    # Make sure /etc/sysconfig/network is here
+    t="${install_root}etc/sysconfig/network"
+    if ! [ -e "$t" ]; then
+        # Remove broken symlink
+        rm -f "$t" ||:
+        : >"$t"
+    fi
+
     # Support for network device group in NetworkManager ifcfg-rh plugin
-    if [ -d "${install_root}etc/sysconfig/network-scripts" ]; then
+    if [ -d "$t-scripts" ]; then
         if [ -n "${pkg_nm-}" ]; then
             nm_devgroup
         fi
@@ -6455,8 +6465,12 @@ esac
 # $selinux
 
 case "$selinux" in
-    'enforcing'|'permissive'|'disabled'|'') ;;
-    *) fatal 'Unknown SELinux mode "%s"\n' "$selinux" ;;
+    'enforcing'|'permissive'|'disabled'|'')
+        [ -z "$readonly_root" ] || selinux='permissive'
+        ;;
+    *)
+        fatal 'Unknown SELinux mode "%s"\n' "$selinux"
+        ;;
 esac
 
 # $passwordless_root or $autopassword_root
@@ -6693,8 +6707,6 @@ _EOF
 
         # Make sure /var/log/lastlog is here
         t="${install_root}var/log/lastlog" && [ -f "$t" ] || : >"$t"
-        # Make sure /etc/sysconfig/network is here
-        t="${install_root}etc/sysconfig/network" && [ -f "$t" ] || : >"$t"
         # Make sure /var/lib/systemd/random-seed is here and empty
         t="${install_root}var/lib/systemd" && [ ! -d "$t" ] || : >"$t/random-seed"
         # Make sure /etc/machine-id is here and empty
@@ -7639,9 +7651,6 @@ distro_post_core_hook
 # $nfs_root
 
 if [ -n "$nfs_root" ]; then
-    # Set SELinux to permissive
-    [ -z "$readonly_root" ] || selinux='permissive'
-
     # Need dracut
     pkg_dracut=1
     # Need to include most (all?) of network device drivers
