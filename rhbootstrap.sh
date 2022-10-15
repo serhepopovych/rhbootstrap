@@ -7030,9 +7030,6 @@ distro_rhel()
                 fi
             fi
 
-            # ... not support nfs-root
-            nfs_root=''
-
             # ... support only minimal install
             minimal_install=1
         fi
@@ -7647,6 +7644,11 @@ fi
 # Perform distro specific actions post initial setup
 distro_post_core_hook
 
+if [ -n "$minimal_install" ]; then
+    nfs_root=''
+    nm_dnsmasq_split=''
+fi
+
 # $nfs_root
 
 if [ -n "$nfs_root" ]; then
@@ -7681,9 +7683,6 @@ if [ -n "$nfs_root" ]; then
     # Add "nfs" dracut module (from dracut-network package)
     echo 'add_dracutmodules+=" nfs "' \
         >"${install_root}etc/dracut.conf.d/01-nfs.conf"
-
-    # No minimal install as we need at least dracut modules and nfs-utils
-    minimal_install=''
 fi
 
 # $nm_dnsmasq_split
@@ -7708,11 +7707,6 @@ case "${nm_dnsmasq_split-}" in
          fi
          ;;
 esac
-
-if [ -n "$nm_dnsmasq_split" ]; then
-    # No minimal install as we need at least NetworkManager
-    minimal_install=''
-fi
 
 # $cc
 
@@ -7752,7 +7746,7 @@ fi
 
 ## Minimal install
 
-if [ -n "${minimal_install-}" ]; then
+if [ -n "$minimal_install" ]; then
     exit_installed
 fi
 
