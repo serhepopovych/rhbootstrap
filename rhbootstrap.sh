@@ -5536,24 +5536,22 @@ rsync-wrapper.tgz.b64
 
         local d="${1:?missing 1st arg to ${func}() <dir>}"
 
-        if [ -d "$d" ]; then
-            install -d \
-                "$d/.local" "$d/.local/share" "$d/.local/bin" \
-                "$d/.cache" "$d/.config" \
-                #
-            install -d -m 0700 \
-                "$d/.ssh" \
-                "$d/tmp" \
-                #
-            ln -snf '.local/bin' "$d/bin"
+        install -d \
+            "$d/.local" "$d/.local/share" "$d/.local/bin" \
+            "$d/.cache" "$d/.config" \
+            #
+        install -d -m 0700 \
+            "$d/.ssh" \
+            "$d/tmp" \
+            #
+        ln -snf '.local/bin' "$d/bin"
 
-            mc_ini "$d"
-            screenrc "$d"
-            xfce4 "$d"
-            xsession "$d"
-            ssh_agent_start4bashrc "$d"
-            rsync_wrapper "$d"
-        fi
+        mc_ini "$d"
+        screenrc "$d"
+        xfce4 "$d"
+        xsession "$d"
+        ssh_agent_start4bashrc "$d"
+        rsync_wrapper "$d"
     }
 
     local uid gid
@@ -5577,8 +5575,9 @@ rsync-wrapper.tgz.b64
                 else
                     t='$u'
                 fi
+                [ -d \"\$t\" ] || t=''
                 # / is not allowed as skel: returns t=''
-                echo \"t='\${t#/}'\"
+                echo \"t='\${t%/}'\"
             "
         )
         if [ -n "$t" ]; then
