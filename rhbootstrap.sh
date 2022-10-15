@@ -404,7 +404,7 @@ pkg_is_installed()
     local pkg_name="${1:?missing 1st arg to ${func}() <pkg_name>}"
     pkg_name="${pkg_name#pkg_}"
 
-    rpm -q "$pkg_name" >/dev/null 2>&1 || return
+   in_chroot "$install_root" "rpm --query '$pkg_name' >/dev/null 2>&1" || return
 }
 
 # Usage: _in_chroot <dir> <cmd> [<arg> ...]
@@ -4679,7 +4679,7 @@ config_readonly_root()
         local t
 
         # Make postfix readonly root aware
-        if pkg_is_installed postfix; then
+        if pkg_is_installed 'postfix'; then
             t="${install_root}etc/rwtab.d/postfix"
             [ -s "$t" ] || {
                 echo 'dirs /var/lib/postfix'
@@ -4687,7 +4687,7 @@ config_readonly_root()
         fi
 
         # Make rsyslog readonly root aware
-        if pkg_is_installed rsyslog; then
+        if pkg_is_installed 'rsyslog'; then
             t="${install_root}etc/rwtab.d/rsyslog"
             [ -s "$t" ] || {
                 echo 'dirs /var/lib/rsyslog'
@@ -4695,7 +4695,7 @@ config_readonly_root()
         fi
 
         # Make gssproxy readonly root aware
-        if pkg_is_installed gssproxy; then
+        if pkg_is_installed 'gssproxy'; then
             t="${install_root}etc/rwtab.d/gssproxy"
             [ -s "$t" ] || {
                 echo 'dirs /var/lib/gssproxy'
