@@ -4385,6 +4385,7 @@ PermitRootLogin prohibit-password
 UseDNS no
 VersionAddendum none
 _EOF
+            _config_sshd_file="$file"
         else
             sed -i "$file" \
                 -e '/^#\?LoginGraceTime/iAllowGroups root users' \
@@ -4392,6 +4393,7 @@ _EOF
                 -e 's/^#\?\(UseDNS\s\+\).*$/\1no/' \
                 -e 's/^#\?\(VersionAddendum\s\+\).*$/\1none/' \
                 #
+            _config_sshd_file=''
         fi
 
         in_chroot "$install_root" 'systemctl enable sshd.service'
@@ -4437,7 +4439,7 @@ datepattern = %%Y%%m%%d-%%H:%%M:%%S
 _EOF
         fi
 
-        local _cfg_replace_append_nohdr=''
+        local _cfg_replace_append_nohdr
         if [ -d "$dir/jail.d" ]; then
             dir="$dir/jail.d"
             file="$dir/99-$prog_name.conf"
@@ -4445,6 +4447,7 @@ _EOF
             _cfg_replace_append_nohdr='1'
         else
             file="$dir/jail.local"
+            _cfg_replace_append_nohdr=''
         fi
 
         # default
@@ -4613,32 +4616,48 @@ config_virt_p2v()
 {
     local user='virt-p2v'
 
-    # Add sudoers(5) file
-    local t="${install_root}etc/sudoers.d"
-    if [ -d "$t" ]; then
-        t="$t/$user"
-        if [ ! -e "$t" ]; then
-            # Remove broken symlink
-            rm -f "$t" ||:
-            cat >"$t" <<EOF
-$user	ALL = (root:root) NOPASSWD: ALL
-EOF
-            chmod 0600 "$t" ||:
+    local file
+    local _cfg_replace_append_nohdr
+
+    # Configure sudo(8)
+    file="${install_root}etc/sudoers"
+    if [ -f "$file" ]; then
+        local dir="$file.d"
+        if [ -d "$dir" ] &&
+           grep -q "^\s*@includedir\s*/${dir#$install_root}/\?\s*$" "$file"
+        then
+            file="$dir/99-$prog_name"
+            : >"$file"
+            _cfg_replace_append_nohdr='1'
+        else
+            _cfg_replace_append_nohdr=''
         fi
+
+        cfg_replace "$user" "$file" "
+$user	ALL = (root:root) NOPASSWD: ALL
+"
     fi
 
-    # Add user and group
-    in_chroot "$install_root" \
-        "useradd -M -r -d / -s '/bin/sh' '$user'"
+    # Create user and group, add supplementary group libvirt and
+    # set home directory if libvirt installed
+    in_chroot "$install_root" "
+        dir='/var/lib/libvirt'
+        [ -d \"\$dir\" ] || dir=''
 
-    # Add user to libvirt group and change it's ~ if libvirt installed
-    if [ -n "${pkg_libvirt-}" ]; then
-        in_chroot "$install_root" \
-            "usermod -a -G libvirt -d '/var/lib/libvirt' '$user'"
-    fi
+        group='libvirt'
+        id -g \"\$group\" >/dev/null 2>&1 || group=''
+
+        if [ ~$user != '~$user' ]; then
+            usermod -a -s '/bin/sh' \
+                \${group:+-G \"\$group\" }\${dir:+-d \"\$dir\" }'$user'
+        else
+            useradd -r -s '/bin/sh' \
+                \${group:+-G \"\$group\" }-d \${dir:-/} -M '$user'
+        fi
+    "
 
     # Configure sshd(8)
-    local file="${install_root}etc/ssh/sshd_config"
+    file="${install_root}etc/ssh/sshd_config"
     if [ -f "$file" ]; then
         in_chroot "$install_root" "usermod -a -G users '$user'"
 
@@ -4646,12 +4665,11 @@ EOF
         install -d -m 0751 "$install_root$keys"
         keys="/$keys"
 
-        local _cfg_replace_append_nohdr=''
-
-        t="$file.d/99-$prog_name.conf"
-        if [ -f "$t" ]; then
-            file="$t"
+        if [ -n "${_config_sshd_file-}" ]; then
+            file="${_config_sshd_file}"
             _cfg_replace_append_nohdr='1'
+        else
+            _cfg_replace_append_nohdr=''
         fi
 
         cfg_replace "$user" "$file" "
