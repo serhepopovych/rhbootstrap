@@ -4801,6 +4801,48 @@ config_plymouth()
     fi
 }
 
+# Usage: config_dracut
+config_dracut()
+{
+    local file="${install_root}etc/dracut.conf"
+
+    if [ -f "$file" ]; then
+        if [ -n "$nfs_root" ]; then
+            local dir="$file.d"
+            if [ -d "$dir" ]; then
+                file="$dir/99-$prog_name.conf"
+                : >"$file"
+                _cfg_replace_append_nohdr='1'
+            else
+                _cfg_replace_append_nohdr=''
+            fi
+
+            cfg_replace 'nfs_root' "$file" '
+# Build generic image regardless (like dracut-config-generic package)
+hostonly="no"
+# Add "nfs" dracut module (from dracut-network package)
+add_dracutmodules+=" nfs "
+'
+        fi
+
+        # Update initramfs file
+        in_chroot "$install_root" '
+            if dracut --help 2>&1 | grep -q -- "--regenerate-all"; then
+                exec dracut --force --quiet --regenerate-all
+            else
+                for kmod in /lib/modules/*; do
+                    if [ -d "$kmod" ] &&
+                       kver="${kmod##*/}" &&
+                       [ -n "$kver" -a -f "/boot/vmlinuz-$kver" ]
+                    then
+                        dracut --force --quiet "/boot/initramfs-$kver.img" "$kver"
+                    fi
+                done
+            fi
+        '
+    fi
+}
+
 # Usage: config_grub_ipxe
 config_grub_ipxe()
 {
@@ -4995,9 +5037,10 @@ vx46AAAAAAAAAAAAAAAAAAAAAADYizfmrP/PACgAAA==
 # Usage: config_grub
 config_grub()
 {
-    if [ -n "${pkg_grub2-}" ]; then
+    local t="${install_root}etc/grub.d/00_header"
+    if [ -f "$t" ]; then
         # Add default GRUB config
-        local t="${install_root}etc/default/grub"
+        t="${install_root}etc/default/grub"
 
         if [ ! -s "$t" ]; then
             cat >"$t" <<'_EOF'
@@ -5139,6 +5182,24 @@ _EOF
                 mv -f "$f" "$t"
             fi
         )
+
+        # Update GRUB2 configuration file
+        in_chroot "$install_root" '
+              if command -v grub2-mkconfig >/dev/null 2>&1; then
+                grub2_mkconfig() { exec grub2-mkconfig "$@"; }
+            elif command -v update-grub2   >/dev/null 2>&1; then
+                grub2_mkconfig() { exec update-grub2; }
+            else
+                grub2_mkconfig() {
+                    echo >&2 "No GRUB2 config management tool found."
+                    exit 1
+                }
+            fi
+            [ ! -L /etc/grub2.cfg ] ||
+                grub2_mkconfig -o "$(readlink -f /etc/grub2.cfg)"
+            [ ! -L /etc/grub2-efi.cfg ] ||
+                grub2_mkconfig -o "$(readlink -f /etc/grub2-efi.cfg)"
+        '
     fi
 }
 
@@ -6607,12 +6668,6 @@ _EOF
             chmod a+rx "$systemctl_helper" ||:
         fi
 
-        # Pick default theme for plymouth
-        config_plymouth
-
-        # Configure GRUB2
-        config_grub
-
         # Configure login banners
         config_login_banners
 
@@ -6727,43 +6782,14 @@ _EOF
         # Make sure /etc/machine-id is here and empty
         t="${install_root}etc/machine-id" && : >"$t"
 
-        # Update initramfs file
-        if [ -n "${pkg_dracut-}" ]; then
-            in_chroot "$install_root" '
-                if dracut --help 2>&1 | grep -q -- "--regenerate-all"; then
-                    exec dracut --force --quiet --regenerate-all
-                else
-                    for kmod in /lib/modules/*; do
-                        if [ -d "$kmod" ] &&
-                           kver="${kmod##*/}" &&
-                           [ -n "$kver" -a -f "/boot/vmlinuz-$kver" ]
-                        then
-                            dracut --force --quiet "/boot/initramfs-$kver.img" "$kver"
-                        fi
-                    done
-                fi
-            '
-        fi
+        # Configure plymouth
+        config_plymouth
 
-        # Update GRUB2 configuration file
-        if [ -n "${pkg_grub2-}" ]; then
-            in_chroot "$install_root" '
-                   if command -v grub2-mkconfig >/dev/null 2>&1; then
-                     grub2_mkconfig() { exec grub2-mkconfig "$@"; }
-                 elif command -v update-grub2   >/dev/null 2>&1; then
-                     grub2_mkconfig() { exec update-grub2; }
-                 else
-                     grub2_mkconfig() {
-                         echo >&2 "No GRUB2 config management tool found."
-                         exit 1
-                     }
-                 fi
-                 [ ! -L /etc/grub2.cfg ] ||
-                    grub2_mkconfig -o "$(readlink -f /etc/grub2.cfg)"
-                 [ ! -L /etc/grub2-efi.cfg ] ||
-                    grub2_mkconfig -o "$(readlink -f /etc/grub2-efi.cfg)"
-            '
-        fi
+        # Configure dracut
+        config_dracut
+
+        # Configure grub2
+        config_grub
 
         # Restore /etc/yum.conf.rhbootstrap after yum(1) from EPEL install
         f="${install_root}etc/yum.conf"
@@ -7690,17 +7716,6 @@ if [ -n "$nfs_root" ]; then
     tmp_mount=${tmp_mount:-1}
     # Set nameserver(s)
     nameservers="${nameservers:-${_nameservers}}"
-
-    # Install /etc/dracut.conf.d
-    install -d "${install_root}etc/dracut.conf.d"
-
-    # Build generic image regardless of dracut-config-generic
-    echo 'hostonly="no"' \
-        >"${install_root}etc/dracut.conf.d/00-generic-image.conf"
-
-    # Add "nfs" dracut module (from dracut-network package)
-    echo 'add_dracutmodules+=" nfs "' \
-        >"${install_root}etc/dracut.conf.d/01-nfs.conf"
 fi
 
 # $nm_dnsmasq_split
