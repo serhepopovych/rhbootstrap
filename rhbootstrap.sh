@@ -4837,14 +4837,14 @@ add_dracutmodules+=" nfs "
         # Update initramfs file
         in_chroot "$install_root" '
             if dracut --help 2>&1 | grep -q -- "--regenerate-all"; then
-                exec dracut --force --quiet --regenerate-all
+                exec dracut --force --regenerate-all
             else
                 for kmod in /lib/modules/*; do
                     if [ -d "$kmod" ] &&
                        kver="${kmod##*/}" &&
                        [ -n "$kver" -a -f "/boot/vmlinuz-$kver" ]
                     then
-                        dracut --force --quiet "/boot/initramfs-$kver.img" "$kver"
+                        dracut --force "/boot/initramfs-$kver.img" "$kver"
                     fi
                 done
             fi
