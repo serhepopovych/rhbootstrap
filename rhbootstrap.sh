@@ -4223,7 +4223,13 @@ dnsmasq.tgz.b64
     }
     "nm_dnsmasq_split_${nm_dnsmasq_split:-0}"
 
-    local t
+    local t network_manager
+
+    if [ -f "${install_root}etc/NetworkManager/NetworkManager.conf" ]; then
+        network_manager=1
+    else
+        network_manager=''
+    fi
 
     # Configure nameserver(s) in resolv.conf
     t="${install_root}etc/resolv.conf"
@@ -4247,14 +4253,14 @@ dnsmasq.tgz.b64
 
     # Support for network device group in NetworkManager ifcfg-rh plugin
     if [ -d "$t-scripts" ]; then
-        if [ -n "${pkg_nm-}" ]; then
+        if [ -n "$network_manager" ]; then
             nm_devgroup
         fi
     fi
 
     # Enable/disable legacy network scripts when no/ NetworkManager available
     if [ -x "${install_root}etc/init.d/network" ]; then
-        if [ -z "${pkg_nm-}" ] ||
+        if [ -z "$network_manager" ] ||
            rocky_version_ge $releasemaj 8 ||
            centos_version_gt $releasemaj 6 ||
            fedora_version_ge $releasemaj 18
@@ -4752,9 +4758,12 @@ config_readonly_root()
         fi
 
         # Enable $readonly_root
-        sed -i "${install_root}etc/sysconfig/readonly-root" \
-            -e 's/^\(READONLY=\)\w\+\(\s*\)$/\1yes\2/' \
-            #
+        t="${install_root}etc/sysconfig/readonly-root"
+        if [ -f "$t" ]; then
+            sed -i "$t" \
+                -e 's/^\(READONLY=\)\w\+\(\s*\)$/\1yes\2/' \
+                #
+        fi
     fi
 }
 
@@ -4846,41 +4855,43 @@ add_dracutmodules+=" nfs "
 # Usage: config_grub_ipxe
 config_grub_ipxe()
 {
-    if [ -n "${pkg_ipxe_bootimgs-}" ]; then
-        copy_ipxe_file()
-        {
-            local func="${FUNCNAME:-copy_ipxe_file}"
+    # Usage: copy_ipxe_file <boot_ipxe>
+    copy_ipxe_file()
+    {
+        local func="${FUNCNAME:-copy_ipxe_file}"
 
-            local ipxe="${1:?missing 1st argument to ${func}() (boot_ipxe)}"
-            local ipxe_name="${2:-$ipxe}"
-            local ipxe_iter
+        local ipxe="${1:?missing 1st argument to ${func}() <ipxe>}"
+        local ipxe_name="${2:-$ipxe}"
+        local ipxe_iter
 
-            for ipxe_iter in \
-                "${install_root}usr/share/ipxe/$ipxe" \
-                "${install_root}usr/lib/ipxe/$ipxe" \
-                #
-            do
-                if [ -f "$ipxe_iter" ]; then
-                    install -D -m 0644 \
-                        "$ipxe_iter" "${install_root}boot/$ipxe_name"
-                    return
-                fi
-            done
-
-            return 1
-        }
-
-        if ! copy_ipxe_file 'ipxe.efi'; then
-            if [ -n "$grp_efi_ia32" ]; then
-                copy_ipxe_file 'ipxe-i386.efi' 'ipxe.efi'
-            else
-                copy_ipxe_file 'ipxe-x86_64.efi' 'ipxe.efi'
+        for ipxe_iter in \
+            "${install_root}usr/share/ipxe/$ipxe" \
+            "${install_root}usr/lib/ipxe/$ipxe" \
+            #
+        do
+            if [ -f "$ipxe_iter" ]; then
+                install -D -m 0644 \
+                    "$ipxe_iter" "${install_root}boot/$ipxe_name" ||
+                return
             fi
+        done
+
+        return 1
+    }
+
+    local rc=0
+    if ! copy_ipxe_file 'ipxe.efi'; then
+        if [ -n "$grp_efi_ia32" ]; then
+            copy_ipxe_file 'ipxe-i386.efi' 'ipxe.efi' || rc=1
+        else
+            copy_ipxe_file 'ipxe-x86_64.efi' 'ipxe.efi' || rc=1
         fi
-        copy_ipxe_file 'ipxe.lkrn'
+    fi
+    copy_ipxe_file 'ipxe.lkrn' || rc=2
 
-        unset -f copy_ipxe_file
+    unset -f copy_ipxe_file
 
+    if [ $rc -lt 2 ]; then
         # Add helper that generates boot menu entries for iPXE
         local unpack_dir="$install_root"
 # md5(20_ipxe.tgz.b64) = 3b7d80ce1ef0d10d274beaffb7335918
@@ -5538,7 +5549,7 @@ IhIE/BXCzCzzxs85bxuonnvMMQ2xSVVstA3PF/fsVjcmPq1SOPlY22DKBCYqp6jfHdzVBlN+jJOP
 BbUgqXaNZfK/U3Uv6wLAo4vp0FGVaphXO/m1+dW/y3L/72fshhpqqKGGGmqooYYa+lHoXwT1YakA
 GAEA
 xfce4.tgz.b64
-        if [ "${has_dm-}" = 'lightdm' -a -n "${pkg_light_locker-}" ]; then
+        if [ "${has_dm-}" = 'lightdm' ] && pkg_is_installed 'light-locker'; then
             local p1='^\(\s*<property name="LockCommand" \)type="empty"/>$'
             local p2='\1type="string" value="light-locker-command --lock"/>'
 
@@ -5687,8 +5698,7 @@ rsync-wrapper.tgz.b64
 # Usage: config_flatpak
 config_flatpak()
 {
-    if [ -n "${pkg_flatpak-}" ] &&
-       in_chroot "$install_root" 'command -v flatpak >/dev/null 2>&1'
+    if in_chroot "$install_root" 'command -v flatpak >/dev/null 2>&1'
     then
         in_chroot "$install_root" \
             'flatpak remote-add --if-not-exists \
@@ -6711,18 +6721,20 @@ _EOF
         fi
 
         # Enable iptables and ip6tables if given
-        if [ -n "${pkg_iptables-}" ]; then
+        if [ -f "${install_root}etc/sysconfig/iptables" ]; then
             in_chroot "$install_root" 'systemctl enable iptables.service'
+        fi
+        if [ -f "${install_root}etc/sysconfig/ip6tables" ]; then
             in_chroot "$install_root" 'systemctl enable ip6tables.service'
         fi
 
         # Disable lm_sensors as they require explicit configuration
-        if [ -n "${pkg_lm_sensors-}" ]; then
+        if [ -f "${install_root}etc/sysconfig/lm_sensors" ]; then
             in_chroot "$install_root" 'systemctl disable lm_sensors.service'
         fi
 
         # Disable mcelog as it might fail to run in virtualized environment
-        if [ -n "${pkg_mcelog-}" ]; then
+        if [ -f "${install_root}etc/mcelog/mcelog.conf" ]; then
             in_chroot "$install_root" 'systemctl disable mcelog.service'
         fi
 
@@ -6733,7 +6745,9 @@ _EOF
         fi
 
         # Enable postfix as it might be disabled (e.g. on CentOS/RHEL 8)
-        in_chroot "$install_root" 'systemctl enable postfix.service'
+        if [ -f "${install_root}etc/postfix/main.cf" ]; then
+            in_chroot "$install_root" 'systemctl enable postfix.service'
+        fi
 
         # $selinux
         if [ -n "$selinux" ]; then
