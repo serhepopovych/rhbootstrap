@@ -6978,19 +6978,6 @@ distro_rhel()
             fi
         fi
 
-        if is_centos && [ -n "${releasever_orig-}" ]; then
-            # Update to target version
-            if [ $releasever_orig = '6.10' ]; then
-                find "${install_root}etc/yum.repos.d" \
-                    -name 'CentOS-*.repo' -a -type f -a -exec \
-                sed -i \
-                    -e '/^baseurl=/!b' \
-                    -e "s,/$releasever/,/$releasever_orig/,g" \
-                {} \+
-                yum_update=1
-            fi
-        fi
-
         local EPEL_URL EPEL_RELEASE_RPM EPEL_RELEASE_URL
         local ELREPO_URL ELREPO_RELEASE_RPM ELREPO_RELEASE_URL
         local ADVANCED_VIRTUALIZATION_RELEASE_RPM
@@ -7233,7 +7220,6 @@ distro_rhel()
     local _releasemin=255 releasemin
 
     # $releasever
-    releasever_orig="$releasever"
     if [ -z "$releasever" ]; then
         if is_centos; then
             # Default CentOS version is 8-stream
@@ -7248,13 +7234,6 @@ distro_rhel()
          releasemaj="${releasever%-stream}"
          releasemin="$(centos_stream_compose_id)"
     else
-        # There is some incompatibility with rpmdb(1) on CentOS 6.x
-        # format that can't be addressed with rpmdb_dump/load
-        # helpers: install last supported and then update.
-        if centos_version_eq $releasever '6.10'; then
-            releasever='6.9'
-        fi
-
         releasemaj="${releasever%%.*}"
 
         if [ "$releasemaj" != "$releasever" ]; then
@@ -7441,7 +7420,6 @@ distro_fedora()
     local host subdir url
 
     # $releasever
-    releasever_orig="$releasever"
     if [ -z "$releasever" ]; then
         # Default Fedora version is latest
         releasever=32
