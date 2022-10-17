@@ -580,17 +580,21 @@ setenforce_restore()
     [ $mode -eq 2 ] || _setenforce $mode || return
 }
 
-# Usage: systemctl_edit <systemd.unit> [<file|fd>] [-- UNIT...]
+# Usage: systemctl_edit [<file|fd>] [--full] [-- UNIT...]
 systemctl_edit()
 {
     local func="${FUNCNAME:-systemctl_edit}"
 
-    local file=''
+    local full='' file=''
     while [ $# -gt 0 ]; do
         case "$1" in
             --) # systemctl edit UNIT...
                 shift
                 break
+                ;;
+            --full)
+                shift
+                full='1'
                 ;;
              *) # file name or descriptor
                 if [ -n "$file" ]; then
@@ -604,72 +608,40 @@ systemctl_edit()
     done
     file="${file:-0}"
 
-    # systemd-run(1) isn't available: cannot run "systemctl edit ..."
-    # since it requires stdout and stderr to be valid TTY.
-    #
-    # See https://github.com/systemd/systemd/issues/21862 for details
-    # of systemd.unit override creation from scripts.
-    in_chroot "$install_root" \
-        'command -v systemd-run >/dev/null 2>&1' ||
-    return
+    # Note that file given by it's name must exist inside $install_root
+    if [ -n "${file##*[^0-9&]*}" -a -n "${file##[0-9&]*&*}" ]; then
+        file="${file#&}"
+        file="&${file:-0}"
+    else
+        file="${file#$install_root}"
+        file="${install_root}${file#/}"
 
-    (
-        # Note that file given by it's name must exist inside $install_root
-        if [ -n "${file##*[^0-9&]*}" -a -n "${file##[0-9&]*&*}" ]; then
-            fd="${file#&}" && fd="${fd:-0}"
+        [ -e "$file" ] || return
+    fi
 
-            file="$(
-                mktemp --dry-run --tmpdir="${install_root}tmp" "$func.XXXXXXXX"
-            )" && mkfifo -m 0600 "$file" || exit
-        else
-            fd=''
-
-            file="${file#$install_root}"
-            file="${install_root}${file#/}"
-
-            [ -e "$file" ] || exit
-        fi
-
-        # No SELinux policy for systemctl(1) supervised by systemd-run(1)
-        setenforce_save 'Permissive'
-
-        # This is main reason for putting entire block in subshell:
-        # traps are reset in subshell.
-        trap '
-            if [ -n "$fd" ]; then
-                rm -f "$file"
+    local t args=''
+    while [ $# -gt 0 ]; do
+        t="$1"
+        shift
+        if [ -z "${t##*\.*}" ]; then
+            t="${install_root}etc/systemd/system/$t"
+            if [ -z "$full" ]; then
+                t="$t.d/"
+                install -d "$t" || continue
+                t="${t}override.conf"
             fi
-            setenforce_restore ||:
-        ' EXIT INT TERM QUIT
-
-        # Executed asynchronously if $file was originally file descriptor
-        in_chroot "$install_root" \
-            "exec >/dev/null 2>&1 </dev/null systemd-run \"\$@\" ${fd:+&}" - \
-                --quiet \
-                -t \
-                --collect \
-                --service-type='simple' \
-                --setenv=SYSTEMD_EDITOR='tee' \
-                -- \
-            /bin/sh -c "exec <'/${file#$install_root}' systemctl edit \"\$@\"" \
-                - \
-                "$@" \
-                #
-
-        if [ -n "$fd" ]; then
-            # Use tee(1) backed by timeout(1) instead of direct
-            # append (>>) by a shell interpreter to avoid block on
-            # write when $file is named pipe (fifo) and process on
-            # other side (e.g. systemd-run(1), tee(1) or systemctl)
-            # does not send EOF (e.g. exited due to error).
-            #
-            # Note that it is up to the caller to provide output on
-            # $fd to avoid blocking on read.
-            while read -r line; do
-                printf -- '%s\n' "$line"
-            done <&"$fd" | timeout 5 tee --append "$file" >/dev/null 2>&1
+            args="${args:+$args }'${t}'"
         fi
-    ) || return
+    done
+
+    # Use tee(1) backed by timeout(1) instead of direct
+    # append (>>) by a shell interpreter to avoid block on
+    # write when $file is named pipe (fifo) and process on
+    # other side does not send EOF (e.g. exited due to error).
+    #
+    # Note that it is up to the caller to provide output on
+    # $fd to avoid blocking on read.
+    eval "timeout 5 tee $args >/dev/null 2>&1 <$file"
 }
 
 # Usage: _yum ...
