@@ -7658,23 +7658,30 @@ fi
 
 if [ -n "${install_root%/}" ]; then
     # Convert rpmdb(1) from host to target format
-    {
-        t="${install_root}var/lib/rpm"
-        find "$t" ! -name 'Packages' -a -type f -a -exec rm -f {} \+
+    if rocky_version_ge $releasemaj 9 ||
+       centos_version_ge $releasemaj 9 ||
+       fedora_version_ge $releasemaj 34
+    then
+        in_chroot "$install_root" 'rpm --rebuilddb'
+    else
+        {
+            t="${install_root}var/lib/rpm"
+            find "$t" ! -name 'Packages' -a -type f -a -exec rm -f {} \+
 
-        t="$t/Packages" && f="$t.bak"
-        mv -f "$t" "$f"
+            t="$t/Packages" && f="$t.bak"
+            mv -f "$t" "$f"
 
-        /usr/lib/rpm/rpmdb_dump "$f"
+            /usr/lib/rpm/rpmdb_dump "$f"
 
-        rm -f "$f"
-    } | {
-        in_chroot_exec "$install_root" '
-            cd /var/lib/rpm &&
-            /usr/lib/rpm/rpmdb_load Packages &&
-            rpm --rebuilddb
-        '
-    }
+            rm -f "$f"
+        } | {
+            in_chroot_exec "$install_root" '
+                cd /var/lib/rpm &&
+                /usr/lib/rpm/rpmdb_load Packages &&
+                rpm --rebuilddb
+            '
+        }
+    fi
 fi
 
 # Perform distro specific actions post initial setup
