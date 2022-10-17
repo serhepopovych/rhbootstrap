@@ -5254,37 +5254,42 @@ _EOF
 config_kernel_symlink_to_root()
 {
     local unpack_dir="$install_root"
-# md5(symlink-to-root.tgz.b64) = a7d975ca931967d47c4dd31e43dee852
+# md5(symlink-to-root.tgz.b64) = b02e2fcd4b5385f931e6e2cbe3069bb0
 [ -d "$unpack_dir" ] || install -d "$unpack_dir"
 base64 -d -i <<'symlink-to-root.tgz.b64' | tar -zxf - -C "$unpack_dir"
-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
+H4sIAAAAAAAAA+1YbVPbRhDmK/oVi2wQTipkm7cZCGRIoBmmATIkaTsDqUdIZ6xBllzd2UnA/u/d
+vTvJJ9vlJe2k09b7wZbu9u2e3ds9XZ9nXhxdeTcsS1jsRQkXfhyvhd7trcu/duMouXFF6mZpKtb0
+5MJTqY60vb0p/5Em/3FufaGxsd7Y2t7eaNa3FurNxsZmYwHqT7b0DdTHNWUAC7TC+/gemv+XUmXJ
+u4oSj3csq5el163E77I9u3pXr1SeeSPbsgS9FVPLeRLg1AXYVWHD0h7+Fww2fILhENiXSEBdCos1
+3kE9r89OTg5OD3GgYVs/HZ2fHr1t/Xx0/v747BTHmrb16uzsQ+vw+Lx18Oo9jqwXXMcnB2+OcGQD
+tVyAG6I5k1dbLIk73hWGy7EmVZhM3oCyu3/rVsveoJXA5wzIUYgSC5D8MKzJByJclMdEkG+ZXsoF
+gYJ7BuEouHZ35WPGuumA3SucdWeLPhtLaTgNBsb9gOBYAveLioPGnQXq1Z5c1nhEomFbMv6zFzJj
+8/PON+fYA/t/u7m5Rfu/ub5eb9aJr1mvN7bm+/97kLH/K3DOfu9HGeM7wFm42qj9AN2B/Mu68i9O
+8I8YP3L/mu1gcot+lrQGfrZagxdZsI8/jPdjsQ8XL3B0/5Nlslh31mKcBn4M7X4SUF358ePp69OD
+k6Mdd8xHRUezZYNWJvkaOy+7EedRcg0NLsDPrkGkUL0jPSO0vUrGayhpCEpHSLjplibQBI2uu9JQ
+1AasKQlujjs1N8KdtAuiwxJrcZENUGY8tefIR6V65KBWFnNGfEEn1Xx6EufaEepX6wI1FYyskQFf
+kmZdP45uWavniw5BSP8aO60IIZxkuw/GMq8BJb0+Dknpg4FlO4rZnuPkWC2pCnyn9BtYST49oZvH
+4qLGluZ0hVKA4FTuEf0ve89GnuYn7TQ2wS/RDEzTKyuGlne/HC57Iw8Xgqb0JHK7sO+FbOAl/Tgu
+okGxhOrLwk6eI6NSase+iAYKR3jBZXKHXExFp8T4UI4brGaa91r8sXnOJxK910KnZJaPRZvhLEly
+viatVqifQeyjhSDt9tKEJQLaWdoF1A4YZWQFloQcPke4eMdzrMVik0iDKr46QIUL6mkkH1BTfoJA
+e0VayjxkHJMq48JaLKer1o+iqFs9mBkwk5kM2toHg5mMYmeNehAzPyRQ/CSUyxaZH8U0IJc1hl77
+7Mk8nFyTGrYWP3cwu2BnF8JUJmsht0wZbMPe2Cs9IiG6yph/g+LT5iSMKytgwKuWX94rU/7MkFNI
+lORCDK0BxdTSSzqX5Y6d9HDZM1NGY4ny0E4zmSdpEn/dkW8Urs8McyaOJbdMHtVIYG3NG1v0xv7O
+VI2Ji5PYdVgv9gMGq97Fb96n2nOlsaSqulqUXr0IAn0IlwgakHFwGTh8eKl0XD6/rA1RwfDaqRlg
+D5VAkTtGmaiX0M37BlWKv5mM2kOnvVYHEzZmmWW+yPJCB0C9+YO96ktLDnAm4DlTz7JMVzEYbsLQ
+/7xC54fHccfr+LylD8GtNA7tKVai7gDcNoZFM64hozN+daBpFNhcBmv1bGtREoksfNiY4luLute5
+vfHIvSapS6hjt2q7WYCxwrzvgWMC6cDRr8cfDMj1aXei0GdB6wo/BbDK6/mJAEyXeM1HiT1me2Rx
+l7ZHtiH4uNIuvS3Jab/lMWfHrefeXBC4dhXNqDpRgJejtbqqJeE5NGo1cw0UPQwFHQTGgzRgV9E8
+Rcl0QCjRCrzyg5t+D4J+llGTyWHGrMBwcMHzhFWBl7pol8kEMcI8kSqFMw2nFPUKvMOa4WdMVvsA
+q65gRScvjMtORyhIGKmGJamAPuGrtchzLrgZpD0RpQn4HPD7qxtddxTvFRoYYC31r7AboCOomgvW
+5Ws698yjg8ZbL008BHuzpr764gRc3s4/5aTsA5LrecDoHE8fnXClwDdAx1X00igRnJbO8XNd4jCu
+Gi7Ljbl+8cTaeUQmt2zWVVGTk8PhznSAyvFRx2marN6prqq4qprfoco6UZVIR7l0yMMo+9JLMwFv
+D07f7L22pi8UzN1WnhxNXSyYG8ycon1jvtPNAbGbY7LhWBb1v+PT4w/nh2oYogRbCq3ZkY773TZ3
+SiNh8Zo/VCw8Veh9SgXT1GdcqygozclJn8hPOgqbPCO34MlxoGJqm4VhhsEgTQRGQncWdY5Rp4oK
+qGuDvDROXi+YPWKzXjhfAbV6Q6xsNi/1DmyNpSx9AfJPfy3/98i8/8mYvIr6ey9/Fh5z/9so3/82
+tptb8/uf70LG/c9fKqmW7CBiz9j16vPkbX47ia/ywI41JNQ7X9g1+aWua9Atna/lt+WfXM3S941V
+dCDVfQyD5VMi9SPriSfYook9+SAqJVlcxkDJfGccph1VI+QgNeJ5KZ3TnOY0pznNaU5zmtOc5jSn
+/yP9AaumBSsAKAAA
 symlink-to-root.tgz.b64
 }
 
@@ -6859,6 +6864,9 @@ _EOF
             # Directories not excluded from install. They are empty.
             find "${install_root}usr/share/doc" -type d -a -empty -a -delete
         fi
+
+        # Remove artifacts
+        in_chroot "$install_root" 'rm -f /null ||:'
 
         # Clean yum(1) packages and cached data
         in_chroot_yum -y clean all
