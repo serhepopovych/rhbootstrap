@@ -4881,7 +4881,7 @@ config_grub_ipxe()
 
     local rc=0
     if ! copy_ipxe_file 'ipxe.efi'; then
-        if [ -n "$grp_efi_ia32" ]; then
+        if [ -n "${grp_efi_ia32-}" ]; then
             copy_ipxe_file 'ipxe-i386.efi' 'ipxe.efi' || rc=1
         else
             copy_ipxe_file 'ipxe-x86_64.efi' 'ipxe.efi' || rc=1
