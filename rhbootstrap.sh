@@ -487,10 +487,13 @@ semode_text2rc()
         '1'|'Enforcing')
             return 1
             ;;
+        '2'|'Disabled')
+            return 2
+            ;;
         *)
             local func="${FUNCNAME:-semode_text2rc}"
             echo >&2 "${func}: invalid <mode>, see setenforce(8) for valid modes"
-            return 2
+            return 3
             ;;
     esac
 }
@@ -501,11 +504,11 @@ _setenforce()
     in_chroot "$install_root" '
         {
             # libselinux-utils
-            command -v setenforce || exit 3
+            command -v setenforce || exit
             # Set mode
             setenforce "$1"
         } >/dev/null 2>&1
-    ' - "$1" || return
+    ' - "$1" || return 3
 }
 
 # Usage: setenforce <mode>
@@ -514,25 +517,28 @@ setenforce()
     local mode="${1-2}"
 
     semode_text2rc "$mode" && mode=0 || mode=$?
-    [ $mode -le 2 ] || return 2
+    [ $mode -lt 2 ] || return 3
 
-    _setenforce $mode
+    _setenforce $mode || return
 }
 
 # Usage: getenforce
 getenforce()
 {
     local mode
+
     mode="$(
         in_chroot "$install_root" '
             {
                 # libselinux-utils
-                command -v getenforce >&2 || exit 3
+                command -v getenforce >&2 || exit
                 # Get mode
                 getenforce
             } 2>/dev/null
         '
-    )" && semode_text2rc "$mode" || return
+    )" || return 3
+
+    semode_text2rc "$mode" || return
 }
 
 # Usage: selinux_enforce()
@@ -543,14 +549,20 @@ selinux_permissive() { setenforce 0 || return; }
 # Usage: setenforce_save <mode>
 setenforce_save()
 {
-    local mode=${__selinux_saved_mode__-2}
-    [ $mode -ge 2 ] || return 123
+    local mode=${__selinux_saved_mode__-3}
+    [ $mode -gt 2 ] || return 123
 
     semode_text2rc "${1-}" && mode=0 || mode=$?
-    [ $mode -lt 2 ] || return 2
+    [ $mode -lt 2 ] || return 3
 
     local rc=0
+
     getenforce || rc=$?
+    case $rc in
+        0|1) ;;            # Permissive,Enforced
+          2) mode=$rc ;;   # Disabled
+          *) return $rc ;; # error
+    esac
 
     __selinux_saved_mode__=$rc
 
@@ -560,12 +572,12 @@ setenforce_save()
 # Usage: setenforce_restore
 setenforce_restore()
 {
-    local mode=${__selinux_saved_mode__-2}
-    [ $mode -lt 2 ] || return 123
+    local mode=${__selinux_saved_mode__-3}
+    [ $mode -le 2 ] || return 123
 
     unset __selinux_saved_mode__
 
-    _setenforce $mode || return
+    [ $mode -eq 2 ] || _setenforce $mode || return
 }
 
 # Usage: systemctl_edit <systemd.unit> [<file|fd>] [-- UNIT...]
