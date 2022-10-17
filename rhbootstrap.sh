@@ -7842,6 +7842,7 @@ fi
 
 pkg_remmina_plugins_secret=1
 pkg_wireshark_gnome=1
+pkg_xorg_x11_utils=1
 
   if is_rocky || is_centos; then
     if [ $releasemaj -ge 8 ]; then
@@ -7986,8 +7987,23 @@ elif is_fedora; then
         pkg_remmina_plugins_secret=
     fi # <= 27
     if [ $releasemaj -ge 24 ]; then
+        if [ $releasemaj -ge 34 ]; then
+            if [ $releasemaj -gt 34 ]; then
+                pkg_xorg_x11_utils=
+
+                pkg_icedtea_web=
+
+                pkg_libreoffice_rhino=0
+
+                pkg_remmina_plugins_nx=
+                pkg_remmina_plugins_xdmcp=
+            fi
+            pkg_orage=
+            pkg_ntpdate=
+        fi # >= 34
         pkg_wireshark_gnome=
     fi # >= 24
+    pkg_libguestfs_winsupport=
 fi
 
 ## List of packages to install
@@ -8757,7 +8773,9 @@ if [ -n "${has_de-}" ]; then
             ;;
     esac
     if [ -n "$x11_server" ]; then
-        PKGS="$PKGS xorg-x11-utils"
+        # xorg-x11-utils
+        [ -z "${pkg_xorg_x11_utils-}" ] ||
+            PKGS="$PKGS xorg-x11-utils"
 
         # xorg-x11-fonts-100dpi
         [ -z "${pkg_xorg_x11_fonts_100dpi-}" ] ||

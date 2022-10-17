@@ -1,12 +1,12 @@
-Utility to bootstrap RHEL/CentOS/Rocky system
-====================================================
+Utility to bootstrap RHEL/CentOS/Rocky and Fedora systems
+=========================================================
 
 On Debian/Ubuntu there is debootstrap(8) utility that takes number of
 parameters and installs packages for selected release to given directory
 that later can be used as base system (chroot) for multiple purposes
 (e.g. containers, NFS root, etc).
 
-There is no known (at least to me) similar tool for RHEL/CentOS/Rocky systems.
+There is no known (at least to me) similar tool for RHEL/Fedora systems.
 
 This utility tries to fill this gap and provide similar functionality
 to debootstrap(8) with some useful extra features.
@@ -17,6 +17,7 @@ Features
   o Bootstrap packages to given directory based on provided information
   o Minimal installation support
   o RHEL/CentOS/Rocky 7, 8 and 9 (including -stream) support
+  o Fedora 10+ support
   o Install packages and configure current system if no directory given
   o Profiles support to select options, package groups and packages
   o Preconfigured profiles for
@@ -60,7 +61,7 @@ Options and their defaults:
         System processor (CPU) architecture to install packages for.
         Only AMD64 (x86_64) supported at the moment
     --releasever=9
-        Supported RHEL/CentOS/Rocky release version
+        Supported RHEL/CentOS/Rocky/Fedora release version
 
     --install-langs=<all>
         (rpm) install localization files for given languages (e.g. 'en:uk')
