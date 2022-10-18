@@ -4123,6 +4123,52 @@ _EOF
     fi
 }
 
+# Usage: config_iptables
+config_iptables()
+{
+    local unpack_dir="$install_root"
+
+    # Enable iptables
+    if [ -f "${install_root}etc/sysconfig/iptables-config" ]; then
+        if [ ! -s "${install_root}etc/sysconfig/iptables" ]; then
+# md5(iptables.tgz.b64) = 06c9f9bb2da96da0cbedbbdabb07d325
+[ -d "$unpack_dir" ] || install -d "$unpack_dir"
+base64 -d -i <<'iptables.tgz.b64' | tar -zxf - -C "$unpack_dir"
+H4sIAAAAAAAAA+3SUWvbMBAH8Dz7Uxz0bUxEcdIO8uYlHstom5K69GHsQbXlRZltGem8km8/2Wlh
+W7KNQWEM/j8wMjqd7hCnOR/7vc9tU5rPY9Oyeqi0H70oGVxIOazyeJ3I2cVoMpvG0/M3Mp5ORnIy
+k+fxiOTLtnFa51k5opGzln937k/x/9QZeVW3labDBHROsbENldbR8zCQ1+6ryXV0RnvbUa4a0oVh
+4q3xVKumU1W1p5DQeU1hlljX4nCbKI3TjyEcUkMNFeKFpcYyKf8lHCe2pIqi/0xfVlXUWsd+/FRx
+ODCUKXSpuop/7DJ6VZqKtYvmq+ubu4ySxSK9yeijnMtP0fzdenOfbJY/7a7vsqOjIqHDBaKmMA2s
+SYjDukkvkyxdvk5vs+Tt5er2fboksXvK/i6vJZPX7cmQocr+Iofz9rjkdXrfbw4xUfTPQXF88oJd
+aO9Dugh/wumdzlk8Gt4OnYit9SxaZ7fmwbAu+qzn9/irvMX66mqVRf96SgEAAAAAAAAAAAAAAAAA
+AAAA4JRv3P93qAAoAAA=
+iptables.tgz.b64
+        fi
+
+        in_chroot "$install_root" 'systemctl enable iptables.service'
+    fi
+
+    # Enable ip6tables
+    if [ -f "${install_root}etc/sysconfig/ip6tables-config" ]; then
+        if [ ! -s "${install_root}etc/sysconfig/ip6tables" ]; then
+# md5(ip6tables.tgz.b64) = 7dab0acaf7c557443e9b86db7bc54fe2
+[ -d "$unpack_dir" ] || install -d "$unpack_dir"
+base64 -d -i <<'ip6tables.tgz.b64' | tar -zxf - -C "$unpack_dir"
+H4sIAAAAAAAAA+3SUWvbMBAAYD/7Vxz0bUxETlJ3+M1LPJbRNiV16cPYg2rJizLbMtK5Jf9+spOO
+bUk2BoVRuM8YGZ/uzhansBi5rStMU+qvI93GKB4q5YKXxL2Y82Hlh2sUXUyCaDoZT84v+HgSBTya
++isA/qJfcULnUFiAwBqDf9r3t/grdQZO1G2lYDcBnRWoTQOlsfBjGMAp+6gLFZ7B1nRQiAaU1Ai4
+1g5q0XSiqrbgMzqnwA8TqprtyrFSW/Xkwz7VNxE+Lg00BkG4b347oAEhZX/rvq+ooDUW3Wjfcdgw
+tJGqFF2Fv35m+KbUFSobJovrm7sc0tksu8nhM0/4lzD5sFzdp6v5b2+Xd/nBVpbCrgCrwY8DKmBs
+t66yyzTP5m+z2zx9f7m4/ZjNgW322T/ltf60HmOmi7o9GtdQmROJWLSHfa+z+/7lEGOyPxMYj48W
+kFCqdzxJRvG0r9bJodqw7BPPp/GJBkfKbfwvf8pm/olZtVEFsieNa+h/LGZC1qy1Zq0fNCrZZz2f
+8T/lzZZXV4s8/N+jTwghhBBCCCGEEEIIIYQQQgghhBBCyKv3HSd9ETwAKAAA
+ip6tables.tgz.b64
+        fi
+
+        in_chroot "$install_root" 'systemctl enable ip6tables.service'
+    fi
+}
+
 # Usage: config_network
 config_network()
 {
@@ -6703,6 +6749,9 @@ _EOF
             chmod a+rx "$systemctl_helper" ||:
         fi
 
+        # Configure iptables
+        config_iptables
+
         # Configure login banners
         config_login_banners
 
@@ -6743,14 +6792,6 @@ _EOF
             config_libvirt_qemu
             config_libvirt
             config_virt_p2v
-        fi
-
-        # Enable iptables and ip6tables if given
-        if [ -f "${install_root}etc/sysconfig/iptables" ]; then
-            in_chroot "$install_root" 'systemctl enable iptables.service'
-        fi
-        if [ -f "${install_root}etc/sysconfig/ip6tables" ]; then
-            in_chroot "$install_root" 'systemctl enable ip6tables.service'
         fi
 
         # Disable lm_sensors as they require explicit configuration
