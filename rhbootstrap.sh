@@ -4650,7 +4650,7 @@ config_virt_p2v()
     if [ -f "$file" ]; then
         local dir="$file.d"
         if [ -d "$dir" ] &&
-           grep -q "^\s*@includedir\s*/${dir#$install_root}/\?\s*$" "$file"
+           grep -q "^\s*[#@]includedir\s*/${dir#$install_root}/\?\s*$" "$file"
         then
             file="$dir/99-$prog_name"
             : >"$file"
