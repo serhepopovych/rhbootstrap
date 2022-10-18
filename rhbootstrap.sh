@@ -7688,7 +7688,7 @@ if [ -n "${install_root%/}" ]; then
     # Convert rpmdb(1) from host to target format
     if rocky_version_ge $releasemaj 9 ||
        centos_version_ge $releasemaj 9 ||
-       fedora_version_ge $releasemaj 34
+       fedora_version_ge $releasemaj 33
     then
         in_chroot "$install_root" 'rpm --rebuilddb'
     else
