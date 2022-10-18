@@ -7881,10 +7881,6 @@ pkg_xorg_x11_utils=1
             pkg_icedtea_web=
             pkg_bitmap_fixed_fonts=
 
-            pkg_caja_image_converter=
-            pkg_caja_open_terminal=
-            pkg_caja_sendto=
-
             pkg_xfce_battery_plugin=
 
             pkg_alsa_plugins_pulseaudio=
@@ -7947,58 +7943,66 @@ pkg_xorg_x11_utils=1
         fi
     fi
 elif is_fedora; then
-    if [ $releasemaj -le 27 ]; then
-        if [ $releasemaj -le 26 ]; then
-            if [ $releasemaj -le 25 ]; then
-                if [ $releasemaj -le 24 ]; then
-                    if [ $releasemaj -le 19 ]; then
-                        if [ $releasemaj -le 18 ]; then
-                            if [ $releasemaj -le 17 ]; then
-                                if [ $releasemaj -le 16 ]; then
-                                    if [ $releasemaj -le 15 ]; then
-                                        if [ $releasemaj -le 14 ]; then
-                                            if [ $releasemaj -le 12 ]; then
-                                                if [ $releasemaj -le 11 ]; then
-                                                    pkg_dracut=
-                                                    [ "${x11_server-}" != 'Xrdp' ] ||
-                                                        x11_server='Xorg'
-                                                fi # <= 11
-                                                pkg_vdpau=
-                                            fi # <= 12
-                                            pkg_va=
-                                        fi # <= 14
-                                        [ "${x11_server-}" != 'Xspice' ] ||
-                                            x11_server='Xorg'
-                                    fi # <= 15
-                                    pkg_ipxe_bootimgs=
-                                fi # <= 16
-                                pkg_shim=
-                            fi # <= 17
-                            pkg_va_vdpau_driver=
-                        fi # <= 18
-                        [ "${x11_server-}" != 'x2go' ] || x11_server='Xorg'
-                    fi
-                    pkg_glvnd=
+    if [ $releasemaj -le 28 ]; then
+        if [ $releasemaj -le 27 ]; then
+            if [ $releasemaj -le 26 ]; then
+                if [ $releasemaj -le 25 ]; then
+                    if [ $releasemaj -le 24 ]; then
+                        if [ $releasemaj -le 23 ]; then
+                            if [ $releasemaj -le 19 ]; then
+                                if [ $releasemaj -le 18 ]; then
+                                    if [ $releasemaj -le 17 ]; then
+                                        if [ $releasemaj -le 16 ]; then
+                                            if [ $releasemaj -le 15 ]; then
+                                                if [ $releasemaj -le 14 ]; then
+                                                    if [ $releasemaj -le 12 ]; then
+                                                        if [ $releasemaj -le 11 ]; then
+                                                            pkg_dracut=
+                                                            [ "${x11_server-}" != 'Xrdp' ] ||
+                                                                x11_server='Xorg'
+                                                        fi # <= 11
+                                                        pkg_vdpau=
+                                                    fi # <= 12
+                                                    pkg_va=
+                                                fi # <= 14
+                                                [ "${x11_server-}" != 'Xspice' ] ||
+                                                    x11_server='Xorg'
+                                            fi # <= 15
+                                            pkg_ipxe_bootimgs=
+                                        fi # <= 16
+                                        pkg_shim=
+                                        pkg_mate=
+                                    fi # <= 17
+                                    pkg_va_vdpau_driver=
+                                fi # <= 18
+                                [ "${x11_server-}" != 'x2go' ] ||
+                                    x11_server='Xorg'
+                            fi # <= 19
+                            pkg_flatpak=
+                        fi # <= 23
+                        pkg_glvnd=
 
-                    pkg_chromium=
-                    pkg_pidgin_hangouts=
+                        pkg_chromium=
+                        pkg_pidgin_hangouts=
 
-                    pkg_nm_openconnect=
-                    pkg_nm_l2tp=
-                fi # <= 24
-                pkg_driverctl=
+                        pkg_nm_openconnect=
+                        pkg_nm_l2tp=
+                    fi # <= 24
+                    pkg_driverctl=
 
-                pkg_slick_greeter=
+                    pkg_slick_greeter=
 
-                pkg_glvnd_egl=
-                pkg_glvnd_gles=
-                pkg_glvnd_glx=
-            fi # <= 25
-            pkg_va_intel_hybrid_driver=
-        fi # <= 26
-        pkg_iucode_tool=
-        pkg_remmina_plugins_secret=
-    fi # <= 27
+                    pkg_glvnd_egl=
+                    pkg_glvnd_gles=
+                    pkg_glvnd_glx=
+                fi # <= 25
+                pkg_va_intel_hybrid_driver=
+            fi # <= 26
+            pkg_iucode_tool=
+            pkg_remmina_plugins_secret=
+        fi # <= 27
+        pkg_network_scripts=
+    fi # <= 28
     if [ $releasemaj -ge 24 ]; then
         if [ $releasemaj -ge 34 ]; then
             if [ $releasemaj -gt 34 ]; then
@@ -8620,17 +8624,12 @@ if [ -n "${pkg_xfce-}" ]; then
         [ -z "${pkg_thunar_vcs_plugin-}" ] ||
             PKGS="$PKGS thunar-vcs-plugin"
         # thunar-volman
-        [ -z "${pkg_thunar_volman-}" ] || PKGS="$PKGS thunar-volman"
+        [ -z "${pkg_thunar_volman-}" ] ||
+            PKGS="$PKGS thunar-volman"
     fi
 
-    # atril/evince
-    if [ -n "${pkg_atril-}" ]; then
-        if centos_version_le $releasemaj 7; then
-            PKGS="$PKGS atril"
-        else
-            PKGS="$PKGS evince"
-        fi
-    fi
+    # evince
+    [ -z "${pkg_evince-}" ] || PKGS="$PKGS evince"
     # mousepad
     [ -z "${pkg_mousepad-}" ] || PKGS="$PKGS mousepad"
     # orage
@@ -8716,21 +8715,73 @@ if [ -n "${pkg_mate-}" ]; then
     "
 
     if [ -n "${pkg_caja-}" ]; then
-        PKGS="$PKGS caja"
+        if is_rocky ||
+           centos_version_ge $releasemaj 7 ||
+           fedora_version_ge $releasemaj 21
+        then
+            PKGS="$PKGS caja"
 
-        # caja-image-converter
-        [ -z "${pkg_caja_image_converter-}" ] || PKGS="$PKGS caja-image-converter"
-        # caja-open-terminal
-        [ -z "${pkg_caja_open_terminal-}" ] || PKGS="$PKGS caja-open-terminal"
-        # caja-schemas
-        [ -z "${pkg_caja_schemas-}" ] || PKGS="$PKGS caja-schemas"
-        # caja-sendto
-        [ -z "${pkg_caja_sendto-}" ] || PKGS="$PKGS caja-sendto"
+            # caja-schemas
+            [ -z "${pkg_caja_schemas-}" ] ||
+                PKGS="$PKGS caja-schemas"
+
+            if is_fedora || [ $releasemaj -le 8 ]; then
+                # caja-image-converter
+                [ -z "${pkg_caja_image_converter-}" ] ||
+                    PKGS="$PKGS caja-image-converter"
+                # caja-open-terminal
+                [ -z "${pkg_caja_open_terminal-}" ] ||
+                    PKGS="$PKGS caja-open-terminal"
+                # caja-sendto
+                [ -z "${pkg_caja_sendto-}" ] ||
+                    PKGS="$PKGS caja-sendto"
+            fi
+
+            # atril-caja
+            if [ -n "${pkg_evince-}" ]; then
+                PKGS="$PKGS atril-caja"
+            fi
+
+            # seahorse-caja
+            if [ -n "${pkg_seahorse-}" ]; then
+                if is_rocky ||
+                   centos_version_ge $releasemaj 8 ||
+                   fedora_version_ge $releasemaj 28
+                then
+                    PKGS="$PKGS seahorse-caja"
+                fi
+            fi
+        else
+            PKGS="$PKGS nautilus"
+
+            if is_fedora || centos_version_ge $releasemaj 6; then
+                # nautilus-image-converter
+                [ -z "${pkg_caja_image_converter-}" ] ||
+                    PKGS="$PKGS nautilus-image-converter"
+            fi
+            # nautilus-open-terminal
+            [ -z "${pkg_caja_open_terminal-}" ] ||
+                PKGS="$PKGS nautilus-open-terminal"
+            # nautilus-sendto
+            [ -z "${pkg_caja_sendto-}" ] ||
+                PKGS="$PKGS nautilus-sendto"
+
+            # evince-nautilus
+            if [ -n "${pkg_evince-}" ]; then
+                if fedora_version_ge $releasemaj 13; then
+                    PKGS="$PKGS evince-nautilus"
+                fi
+            fi
+
+            # seahorse-nautilus
+            if [ -n "${pkg_seahorse-}" ]; then
+                if fedora_version_ge $releasemaj 17; then
+                    PKGS="$PKGS seahorse-nautilus"
+                fi
+            fi
+        fi
     fi
-    # atril
-    [ -z "${pkg_atril-}" ] || PKGS="$PKGS atril"
-    # atril-caja
-    [ -z "${pkg_caja-}" -o -z "${pkg_atril-}" ] || PKGS="$PKGS atril-caja"
+
     # pluma
     [ -z "${pkg_pluma-}" ] || PKGS="$PKGS pluma"
     # eom
@@ -8739,8 +8790,6 @@ if [ -n "${pkg_mate-}" ]; then
     [ -z "${pkg_engrampa-}" ] || PKGS="$PKGS engrampa"
     # seahorse
     [ -z "${pkg_seahorse-}" ] || PKGS="$PKGS seahorse"
-    # seahorse-caja
-    [ -z "${pkg_caja-}" -o -z "${pkg_seahorse-}" ] || PKGS="$PKGS seahorse-caja"
 
     has_de='mate'
     gtk_based_de=1
