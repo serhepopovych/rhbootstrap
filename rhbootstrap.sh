@@ -7636,12 +7636,17 @@ if [ -n "${install_root%/}" ]; then
         install -d "$d" && mount --bind "/$f" "$d"
     done
 
-    # Point /etc/mtab to /proc/self/mounts unless it already exist
-    f="${install_root}etc/mtab"
-    if [ ! -f "$f" ]; then
-        install -D -m 0644 /dev/null "$f"
-        ln -snf '../proc/self/mounts' "$f"
-    fi
+    # Provide empty /etc/fstab and /etc/mtab unless they already exists
+    for f in 'fstab' 'mtab'; do
+        f="${install_root}etc/$f"
+        if [ ! -f "$f" ]; then
+            # Remove broken symlink
+            rm -f "$f" ||:
+            install -D -m 0644 /dev/null "$f"
+        fi
+    done
+    # f="${install_root}etc/mtab"
+    ln -snf '../proc/self/mounts' "$f" ||:
 
     # Hide /proc/1 from target (e.g. for rpm pre/post scripts)
     f="${install_root}proc/1"
@@ -7723,13 +7728,6 @@ yum -y \
     install '@core' \
     ${PKGS-} \
     #
-
-f="${install_root}etc/fstab"
-if [ ! -e "$f" ]; then
-    # Remove broken symlink
-    rm -f "$f" ||:
-    : >"$f"
-fi
 
 if [ -n "${install_root%/}" ]; then
     # Convert rpmdb(1) from host to target format
