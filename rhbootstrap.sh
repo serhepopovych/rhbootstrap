@@ -634,6 +634,7 @@ systemctl_edit()
         fi
     done
 
+    local rc=0
     # Use tee(1) backed by timeout(1) instead of direct
     # append (>>) by a shell interpreter to avoid block on
     # write when $file is named pipe (fifo) and process on
@@ -641,7 +642,12 @@ systemctl_edit()
     #
     # Note that it is up to the caller to provide output on
     # $fd to avoid blocking on read.
-    eval "timeout 5 tee $args >/dev/null 2>&1 <$file"
+    eval "timeout 5 tee $args >/dev/null 2>&1 <$file || echo \"rc=\$?\""
+
+    # Reload edited unit files unless installed to directory
+    [ -n "${install_root%/}" ] || systemctl 'daemon-reload' ||:
+
+    return $rc
 }
 
 # Usage: _yum ...
