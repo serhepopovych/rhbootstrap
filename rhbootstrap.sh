@@ -419,6 +419,12 @@ _in_chroot()
     [ -z  "${_in_chroot_exec}" ] || _in_chroot_exec='exec'
 
     ${_in_chroot_exec} setarch "$basearch" \
+        env -i \
+            TERM="${TERM:-vt220}" \
+            PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' \
+            USER='root' \
+            HOME='/' \
+            LANG='C' \
         chroot "$dir" /bin/sh -c "$@" ||
     return
 }
