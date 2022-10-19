@@ -8513,11 +8513,14 @@ if [ -n "${grp_virt_host-}" ]; then
 
     # openvswitch
     if [ -n "${pkg_openvswitch-}" ]; then
-          if [ -n "$repo_openstack" -o -n "$repo_ovirt" ]; then
+          if [ -n "$repo_openstack" -o -n "$repo_ovirt" ] ||
+             fedora_version_ge $releasemaj 17; then
             PKGS="$PKGS openvswitch"
 
-            [ -z "${pkg_openvswitch_ipsec-}" ] ||
-                PKGS="$PKGS openvswitch-ipsec"
+            if ! is_fedora || version_ge $releasemaj 31; then
+                [ -z "${pkg_openvswitch_ipsec-}" ] ||
+                    PKGS="$PKGS openvswitch-ipsec"
+            fi
         elif [ -n "$repo_nfv_openvswitch" ]; then
             PKGS="$PKGS openvswitch${pkg_openvswitch}"
 
