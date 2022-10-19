@@ -7295,7 +7295,7 @@ distro_rhel()
             releasever='8-stream'
         else
             # Default Rocky/other version is 8
-            releasever='8'
+            releasever='9'
         fi
     fi
 
@@ -7491,8 +7491,8 @@ distro_fedora()
     # $releasever
     if [ -z "$releasever" ]; then
         # Default Fedora version is latest
-        releasever=32
-        releasemaj=32
+        releasever='36'
+        releasemaj='36'
     else
         releasemaj="${releasever%%.*}"
 
