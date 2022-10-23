@@ -1,0 +1,748 @@
+#!/bin/sh
+
+# MIT License
+#
+# Copyright (c) 2022 Serhey Popovych <serhe.popovych@gmail.com>
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+
+# Requires: xargs(1), sed(1), rm(1), ln(1), tee(1), rmdir(1), install(1),
+#           env(1), chroot(1), readlink(1), update-rc.d(8), chkconfig(8),
+#           systemctl(1)
+
+# Set option(s)
+set -e
+set -u
+
+# Enable debug/trace
+#exec 2>"/tmp/${0##*/}.debug.$(date '+%s.%N')"
+#set >&2
+#set -x
+
+# Make sure to set sane defaults for environment
+export LANG=C
+export PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+
+readonly systemd_lib_unit='/lib/systemd/system'
+readonly systemd_etc_unit='/etc/systemd/system'
+
+# Usage: _systemd_validate_unit_name <unit>
+_systemd_validate_unit_name()
+{
+    local f="${1:?missing 1st arg to _systemd_validate_unit_name() <unit>}"
+
+    f="${f##*/}"
+
+    # Skip invalid unit names
+    [ -n "${f##*[^\[:alnum:]:_@.-]*}" ] || return
+    # Skip units without name prefix, type suffix or multiple dots
+    [ "$f" = "${f%%.*}.${f##*.}" ] || return
+    # Skip invalid template name
+    [ -n "${f##*@*}" -o "$f" = "${f%%@.*}@.${f##*@.}" ] || return
+}
+
+# Usage: systemd_unit_get <section> <attribute> <unit1> <unit2> ...
+systemd_unit_get()
+{
+    local func="${FUNCNAME:-systemd_unit_get}"
+
+    local section="${1:?missing 1st arg to ${func}() <section>}"
+    local attribute="${2:?missing 2d arg to ${func}() <attribute>}"
+    shift 2
+
+    local u="${systemd_unit:-$systemd_lib_unit}"
+    local p="${root-}/${u#/}"
+
+    local f t=' '
+    for f in "$@"; do
+        _systemd_validate_unit_name "$f" || continue
+ 
+        # Skip duplicates
+        [ -n "${t##* $f *}" ] || continue
+
+        t="$t$f "
+
+        f="$p/$f"
+        if [ -f "$f" ]; then
+            printf -- '%s\n' "$f"
+        fi
+    done | xargs sed -n -e "/\\[$section\\]/,/\\[/ s/^$attribute=//p"
+}
+
+# Usage: systemd_unit_list <section> <attribute> <unit1> <unit2> ...
+systemd_unit_list()
+{
+    local func="${FUNCNAME:-systemd_unit_list}"
+
+    local section="${1:?missing 1st arg to ${func}() <section>}"
+    local attribute="${2:?missing 2d arg to ${func}() <attribute>}"
+    shift 2
+
+    local e="${root-}/${systemd_etc_unit#/}"
+    local l="${root-}/${systemd_lib_unit#/}"
+
+    local f u=''
+
+    local sul_tt="${sul_tt:- }"
+    local et=' ' et_dir="$systemd_etc_unit"
+    local lt=' ' lt_dir="$systemd_lib_unit"
+
+    for f in "$@"; do
+        f="${f##*/}"
+        _systemd_validate_unit_name "$f" || continue
+
+        # Skip duplicates
+        [ -n "${sul_tt##* $f *}" ] || continue
+
+          if [ -f "$e/$f" ]; then
+            et="$et$f "
+        elif [ -f "$l/$f" ]; then
+            lt="$lt$f "
+        else
+            continue
+        fi
+
+        sul_tt="$sul_tt$f "
+    done
+
+    for f in 'et' 'lt'; do
+        u=$u$(
+                # skip unit name validation as it already performed
+                _systemd_validate_unit_name() { :; }
+                # u is in subshell is not the same as outside
+                eval "
+                    u="\$${f}"
+                    if [ -n \"\$u\" ]; then
+                        systemd_unit=\"\$${f}_dir\"
+                        systemd_unit_get \"\$section\" \"\$attribute\" \$u
+                    fi
+                "
+             )
+    done
+
+    if [ -z "$u" ]; then
+        printf -- '%s\n' $sul_tt
+    else
+        "$func" "$section" "$attribute" $u
+    fi
+}
+
+# Usage: systemd_unit_find <section> <attribute> <unit1> <unit2> ...
+systemd_unit_find()
+{
+    local f t r="${root-}"
+    for f in $(systemd_unit_list "$@"); do
+        for t in \
+            "$systemd_etc_unit" \
+            "$systemd_lib_unit" \
+            #
+        do
+            t="$t/$f"
+            if [ -f "$r$t" ]; then
+                printf -- '%s\n' "$t"
+                break
+            fi
+        done
+    done
+}
+
+# Usage: systemd_unit_enable <unit1> <unit2> ...
+systemd_unit_enable()
+{
+    local func="${FUNCNAME:-systemd_unit_enable}"
+
+    local u="${systemd_unit:-$systemd_etc_unit}"
+    local p="${root-}/${u#/}"
+
+    local rc=0
+
+    local sue_wants='WantedBy'
+    local sue_requires='RequiredBy'
+    local sue_alias='Alias'
+
+    local f t a
+    for f in $(systemd_unit_find 'Install' 'Also' "$@"); do
+        u="${f##*/}"
+        # Skip template unit
+        [ -n "${u##*@.*}" ] || continue
+
+        for a in \
+            'wants' \
+            'requires' \
+            '' \
+            #
+        do
+            for t in \
+                $(
+                    # a is in subshell is not the same as outside
+                    eval "a=\"\${sue_${a:-alias}}\""
+                    systemd_unit="${f%/$u}"
+                    systemd_unit_get 'Install' "$a" "$u"
+                 )
+            do
+                if [ -n "$a" ]; then
+                    t="$p/$t.$a/"
+                    install -d "$t"
+                    t="$t$u"
+                else
+                    # Alias type matches unit
+                    [ "${u##*.}" = "${t##*.}" ] || continue
+                    # Support Alias=foo.service.wants/bar.service
+                    if [ -z "${t##*/*}" ]; then
+                        t="$p/$t"
+                        install -d "${t%/*}"
+                    else
+                        t="$p/$t"
+                    fi
+                fi && ln -snf "$f" "$t" || rc=$((rc + $?))
+            done
+        done
+    done
+
+    return $rc
+}
+
+# Usage: systemd_unit_disable <unit1> <unit2> ...
+systemd_unit_disable()
+{
+    local func="${FUNCNAME:-systemd_unit_disable}"
+
+    local u="${systemd_unit:-$systemd_etc_unit}"
+    local p="${root-}/${u#/}"
+
+    local rc=0
+
+    local links="$(
+        for l in \
+            "$p"/*.wants/* \
+            "$p"/*.requires/* \
+            "$p"/* \
+            #
+        do
+            _systemd_validate_unit_name "$l" || continue
+
+            # Skip if not symlink
+            [ -L "$l" ] || continue
+            # Skip if unable to read symlink
+            f="$(readlink "$l" 2>/dev/null)" || continue
+
+            printf -- '%s=%s\n' "$l" "$f"
+        done
+    )"
+    [ -n "$links" ] || return 0
+
+    local f l
+    for f in $(systemd_unit_find 'Install' 'Also' "$@"); do
+        u="${f##*/}"
+        # Skip template unit
+        [ -n "${u##*@.*}" ] || continue
+
+        for u in $links; do
+            l="${u%=$f}"
+            [ "$l" = "$u" ] || printf -- '%s\n' "$l"
+        done
+    done | xargs rm -f || rc=$((rc + $?))
+
+    # Do not remove directories left empty
+    : || for u in $links; do
+        l="${u%=*}" && l="${l%/*}"
+        [ "$l" != "$p" -a -d "$l" ] || continue
+        rmdir "$l" >/dev/null 2>&1 ||:
+    done
+
+    return $rc
+}
+
+# Usage: systemd_unit_mask <unit1> <unit2>...
+systemd_unit_mask()
+{
+    local func="${FUNCNAME:-systemd_unit_mask}"
+
+    local u="${systemd_unit:-$systemd_etc_unit}"
+    local p="${root-}/${u#/}"
+
+    local rc=0
+
+    local f t
+    for f in "$@"; do
+        _systemd_validate_unit_name "$f" || continue
+
+        t="$p/$f"
+        if ! ln -snf '/dev/null' "$t"; then
+            # Remove broken symlink
+            rm -f "$t" && : >"$t"
+        fi || rc=$((rc + $?))
+    done
+
+    return $rc
+}
+
+# Usage: systemd_unit_unmask <unit1> <unit2>...
+systemd_unit_unmask()
+{
+    local func="${FUNCNAME:-systemd_unit_unmask}"
+
+    local u="${systemd_unit:-$systemd_etc_unit}"
+    local p="${root-}/${u#/}"
+
+    local rc=0
+
+    local f t
+    for f in "$@"; do
+        _systemd_validate_unit_name "$f" || continue
+
+        t="$p/$f"
+        if [ -L "$t" ]; then
+            # Skip if unable to read symlink
+            f="$(readlink "$t" 2>/dev/null)" || continue
+            # Skip if target is not /dev/null
+            [ "$f" = '/dev/null' ] || continue
+        else
+            # Skip unless regular empty file
+            [ -f "$t" -a ! -s "$t" ] || continue
+        fi
+        rm -f "$t" || rc=$((rc + $?))
+    done
+
+    return $rc
+}
+
+# Usage: systemd_unit_edit [--full] <unit1> <unit2>...
+systemd_unit_edit()
+{
+    local func="${FUNCNAME:-systemd_unit_edit}"
+
+    local u="${systemd_unit:-$systemd_etc_unit}"
+    local p="${root-}/${u#/}"
+
+    local rc=0
+
+    local full=''
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --full)
+                shift
+                full='1'
+                break
+                ;;
+            --*)
+                echo >&2 "${func}: unknown option '$1'"
+                return 1
+                ;;
+              *)
+                break
+                ;;
+        esac
+    done
+
+    local f t args=''
+    for f in "$@"; do
+        _systemd_validate_unit_name "$f" || continue
+
+        t="$p/$f"
+        if [ -z "$full" ]; then
+            t="$t.d/"
+            install -d "$t"
+            t="${t}override.conf"
+        fi && args="${args:+$args }'$t'" || rc=$((rc + $?))
+    done
+
+    eval "tee $args >/dev/null 2>&1 || rc=\$((rc + \$?))"
+
+    return $rc
+}
+
+# Usage: systemd_unit_cat <unit1> <unit2>...
+systemd_unit_cat()
+{
+    local func="${FUNCNAME:-systemd_unit_cat}"
+
+    local u="${systemd_unit:-$systemd_etc_unit}"
+    local p="${root-}/${u#/}"
+
+    local rc=0
+
+    # Usage: _cat <file> <header>
+    _cat()
+    {
+        if [ -r "$1" ]; then
+            printf -- '# %s\n' "$2"
+            cat "$1"
+        fi || return
+    }
+
+    local f t r="${root-}"
+    for f in $(
+                 # Not parsing any attributes
+                 systemd_unit_get() { :; }
+                 systemd_unit_find 'all' 'all' "$@"
+              )
+    do
+        t="$r$f"
+        if _cat "$t" "$f"; then
+            for t in "$p/${f##*/}.d"/*.conf; do
+                f="${t#$r}"
+                printf -- '\n'
+                _cat "$t" "$f"
+            done
+        fi || rc=$((rc + $?))
+    done
+
+    unset -f _cat
+
+    return $rc
+}
+
+# Usage: systemd_set_default <target>
+systemd_set_default()
+{
+    local func="${FUNCNAME:-systemd_set_default}"
+
+    local target="${1:?missing 1st arg to ${func}() <target>}"
+
+    local u="${systemd_unit:-$systemd_etc_unit}"
+    local p="${root-}/${u#/}"
+
+    ln -snf "$target" "$p/default.target" || return
+}
+
+# Usage: systemd_get_default
+systemd_get_default()
+{
+    local u='default.target'
+
+    local f
+    for f in \
+        "$systemd_etc_unit" \
+        "$systemd_lib_unit" \
+        #
+    do
+        f="${root-}$f/$u"
+        if [ -L "$f" ] &&
+           f="$(readlink "$f" 2>/dev/null)"
+        then
+            printf -- '%s\n' "${f##*/}"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+################################################################################
+
+# Usage: in_chroot ...
+in_chroot()
+{
+    local func="${FUNCNAME:-in_chroot}"
+
+    [ $# -gt 0 ] || return
+
+    if [ -n "${root-}" ]; then
+        env -i \
+            TERM="${TERM:-vt220}" \
+            PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' \
+            USER='root' \
+            HOME='/' \
+            LANG='C' \
+        chroot "$root" /bin/sh -c "$@"
+    else
+        /bin/sh -c "$@"
+    fi || return
+}
+
+# Usage: systemctl_helper <action> <unit1> <unit2>...
+systemctl_helper()
+{
+    local func="${prog_name:-${FUNCNAME:-systemctl_helper}}"
+
+    # Usage: _usage
+    _usage()
+    {
+        local rc=$?
+        local fd
+
+        [ $rc -eq 0 ] && fd=1 || fd=2
+
+        cat >&$fd <<EOF
+Usage: $func <action> ...
+Where <action> is
+    enable/disable <unit1> [<unit2>...]
+      Enable or Disable specific <unit> to be started and stopped
+      epending on it's configuration.
+
+    mask/unmask <unit1> [<unit2>...]
+      Delete or Add <unit> to list of managed by init manager units.
+
+    edit [--full] <unit1> [<unit2>...]
+      Modify systemd(1) units with data from standard input. This
+      allows overriding particular configuration items or replacing
+      <unit> completely with --full option. This is systemd(1) only.
+
+    cat <unit1> [<unit2>...]
+      Display contents of systemd(1) units and overrides if any.
+      This is systemd(1) only.
+
+    set-default <systemd_target_or_runlevel_from_0_to_6>
+      Set default systemd(1) target in /etc/systemd/default.target
+      or SysVinit runlevel (via /etc/inittab).
+
+    get-default
+      Get current default systemd(1) target or SysVinit runlevel.
+      See set-default action above for more details.
+
+Alternative root directory can be supplied by setting root= environment
+variable for this helper (e.g. root='/path/to/root' systemctl ...).
+
+Report bugs to <serhe.popovych@gmail.com>
+EOF
+        return $rc
+    }
+
+    # Usage: _command_not_supported
+    _command_not_supported()
+    {
+        if [ -n "${_cns_warn_once-}" ]; then
+            return 0
+        else
+            _cns_warn_once='1'
+
+            : ${initman:?missing or empty variable}
+            :  ${action:?missing or empty variable}
+
+            printf >&2  -- '%s: "%s" unsupported command "%s"\n' \
+                "$func" "$initman" "$action" \
+                #
+
+            return 124
+        fi
+    }
+    local _cns_warn_once=''
+
+    local rc=''
+    if [ $# -gt 0 ]; then
+        local action="${1-}"
+        case "$action" in
+            'help'|'usage')
+                _usage ||:
+                rc=0
+                ;;
+            '')
+                printf >&2 -- '%s: missing first argument <action>\n' "$func"
+                ! : || _usage || rc=$?
+                ;;
+        esac
+    else
+        printf >&2 -- '%s: no arguments\n' "$func"
+        ! : || _usage || rc=$?
+    fi
+
+    unset -f _usage
+
+    [ -z "$rc" ] || return $rc
+
+    local initd="${root-}/etc/init.d"
+
+    # Usage: sysvinit_*_enable <unit>
+    sysvinit_updatercd_enable() {
+        [ ! -r "$initd/$1" ] || in_chroot update-rc.d "$1" 'enable' || return
+    }
+    sysvinit_chkconfig_enable() {
+        [ ! -r "$initd/$1" ] || in_chroot chkconfig "$1" 'on' || return
+    }
+    # Usage: sysvinit_*_disable <unit>
+    sysvinit_updatercd_disable() {
+        [ ! -r "$initd/$1" ] || in_chroot update-rc.d "$1" 'disable' || return
+    }
+    sysvinit_chkconfig_disable() {
+        [ ! -r "$initd/$1" ] || in_chroot chkconfig "$1" 'off' || return
+    }
+
+    # Usage: sysvinit_*_mask <unit>
+    sysvinit_updatercd_mask()
+    {
+        local rc=0
+
+        local f
+        for f in \
+            "${root-}/etc"/rc?.d/[SK][0-9][0-9]"$f" \
+            #
+        do
+            [ ! -L "$f" ] || rm -f "$f" || rc=$((rc + $?))
+        done
+
+        return $rc
+    }
+    sysvinit_chkconfig_mask() {
+        [ ! -r "$initd/$1" ] || in_chroot chkconfig --del "$1" || return
+    }
+    # Usage: sysvinit_*_unmask <unit>
+    sysvinit_updatercd_unmask() {
+        [ ! -r "$initd/$1" ] || in_chroot update-rc.d "$1" defaults || return
+    }
+    sysvinit_chkconfig_unmask() {
+        [ ! -r "$initd/$1" ] || in_chroot chkconfig --add "$1" || return
+    }
+
+    # Usage: sysvinit_*_edit <unit>
+    sysvinit_updatercd_edit() {
+        _command_not_supported || return
+    }
+    sysvinit_chkconfig_edit() {
+        _command_not_supported || return
+    }
+    # Usage: sysvinit_*_cat <unit>
+    sysvinit_updatercd_cat() {
+        _command_not_supported || return
+    }
+    sysvinit_chkconfig_cat() {
+        _command_not_supported || return
+    }
+
+    # Usage: sysvinit_set_default <target> [<file>]
+    sysvinit_set_default()
+    {
+        local func="${FUNCNAME:-sysvinit_set_default}"
+
+        local t="${1:?missing 1st arg to ${func}() <target>}"
+
+        local f="${root-}${2:-/etc/inittab}"
+        if [ -f "$f" ]; then
+            local r
+            case "$t" in
+                  'poweroff.target')   r='0' ;;
+                    'rescue.target')   r='1' ;;
+                'multi-user.target')   r='3' ;;
+                 'graphical.target')   r='5' ;;
+                    'reboot.target')   r='6' ;;
+                              [0-6])   r=$t  ;;
+                                  *)   r='3' ;;
+            esac
+
+            local regex='^\([^:]\+\):[0-9]\+:\(initdefault:.*\)$'
+            local nr="$(sed -n -e "/$regex/=" "$f" | sed -n -e '$ p')"
+            if [ -n "$nr" ]; then
+                sed -i "$f" \
+                    -e "$nr s/$regex/\1:$r:\2/" \
+                    #
+            fi
+        fi
+    }
+
+    # Usage: sysvinit_get_default [<file>]
+    sysvinit_get_default()
+    {
+        local func="${FUNCNAME:-sysvinit_get_default}"
+
+        local f="${root-}${1:-/etc/inittab}"
+        if [ -f "$f" ]; then
+            f="$(
+                sed -n \
+                    -e 's/^[^:]\+:\([0-9]\+\):initdefault:.*$/\1/' \
+                    -e 't hold' \
+                    -e 'b print' \
+                    -e ': hold h' \
+                    -e ': print $ {g;p}' \
+                    "$f" \
+                    #
+            )"
+            case "$f" in
+                    0) f='poweroff.target'   ;;
+                    1) f='rescue.target'     ;;
+                2|3|4) f='multi-user.target' ;;
+                    5) f='graphical.target'  ;;
+                    6) f='reboot.target'     ;;
+                    *) f='basic.target'      ;;
+            esac
+            printf -- '%s\n' "$f"
+        fi
+    }
+
+    rc=0
+    while :; do
+        local initman
+        local control
+
+        if in_chroot command -v 'systemctl' >/dev/null 2>&1; then
+            initman='systemd'
+            control='unit'
+        elif in_chroot command -v 'update-rc.d' >/dev/null 2>&1; then
+            initman='sysvinit'
+            control='updatercd'
+        elif in_chroot command -v 'chkconfig' >/dev/null 2>&1; then
+            initman='sysvinit'
+            control='chkconfig'
+        else
+            printf >&2 -- '%s: unsupported init manager\n' "$func"
+            rc=123
+            break
+        fi
+
+        case "$action" in
+            'enable'|'disable'|'mask'|'unmask'|'edit'|'cat')
+                action="${initman}_${control}_${action}"
+                ;;
+            'get-default')
+                action="${initman}_get_default"
+                ;;
+            'set-default')
+                action="${initman}_set_default"
+                ;;
+            *)
+                _command_not_supported || rc=$?
+                break
+                ;;
+        esac
+
+        case "$initman" in
+            'systemd')
+                "$action" "$@" || rc=$?
+                ;;
+            *)
+                local f
+                for f in "$@"; do
+                    if [ -n "$f" ]; then
+                        "$action" "$@" || rc=$((rc + $?))
+                    fi
+                done
+                ;;
+        esac
+
+        break
+    done
+
+    unset -f \
+        sysvinit_updatercd_enable \
+        sysvinit_chkconfig_enable \
+        sysvinit_updatercd_disable \
+        sysvinit_chkconfig_disable \
+        sysvinit_updatercd_mask \
+        sysvinit_chkconfig_mask \
+        sysvinit_updatercd_unmask \
+        sysvinit_chkconfig_unmask \
+        sysvinit_get_default \
+        sysvinit_set_default \
+        _command_not_supported \
+        #
+
+    return $rc
+}
+
+# Main
+systemctl_helper "$@"

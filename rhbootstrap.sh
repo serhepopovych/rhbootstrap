@@ -407,26 +407,79 @@ pkg_is_installed()
    in_chroot "$install_root" "rpm --query '$pkg_name' >/dev/null 2>&1" || return
 }
 
-# Usage: _in_chroot <dir> <cmd> [<arg> ...]
+# Usage: _env [NAME=VALUE]... [COMMAND [ARG]...]
+_env()
+{
+    local _env_exec="${_env_exec-}"
+    [ -z "${_env_exec}" ] || _env_exec='exec'
+
+    local H="${helpers_dir-}"
+    local P='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
+
+    ${_env_exec} env -i \
+        TERM="${TERM:-vt220}" \
+        PATH="${H:+$H:}$P" \
+        USER="${USER:-root}" \
+        HOME='/' \
+        LANG='C' \
+        "$@"
+        #
+}
+
+# Usage: in_env ...
+in_env()
+{
+    local _env_exec=''
+    _env "$@" || return
+}
+
+# Usage: in_env_exec ...
+in_env_exec()
+{
+    local _env_exec='1'
+    _env "$@" || return
+}
+
+# Usage: _in_chroot [NAME=VALUE]... [--] <dir> <cmd> [-|command name] [<arg> ...]
 _in_chroot()
 {
     local func="${func:-${FUNCNAME:-_in_chroot}}"
 
-    local dir="${1:?missing 1st arg to ${func}() <dir>}" && shift
-    [ $# -gt 0 ] || return
+    local env_vars=''
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            [[:alpha:]_]*=*)
+                env_vars="${env_vars:+$env_vars }'$1'"
+                ;;
+            --)
+                shift
+                break
+                ;;
+            # errors
+            --*)
+                printf >&2 -- '%s: unknown option: %s\n' "$func" "$1"
+                return 1
+                ;;
+            *)
+                break
+                ;;
+        esac
+        shift
+    done
 
-    local _in_chroot_exec="${_in_chroot_exec-}"
-    [ -z  "${_in_chroot_exec}" ] || _in_chroot_exec='exec'
+    local dir="${1:?missing 1st arg to ${func}() <dir>}"
+    local cmd="${2:?missing 2d arg to ${func}() <cmd>}"
+    shift 2
 
-    ${_in_chroot_exec} setarch "$basearch" \
-        env -i \
-            TERM="${TERM:-vt220}" \
-            PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' \
-            USER='root' \
-            HOME='/' \
-            LANG='C' \
-        chroot "$dir" /bin/sh -c "$@" ||
-    return
+    local helpers_dir="/${helpers_dir#$install_root}"
+    local _env_exec="${_in_chroot_exec-}"
+
+    eval "
+        _env $env_vars \
+        setarch '$basearch' \
+            chroot '$dir' /bin/sh -c \"\$cmd\" \"\$@\" ||
+        return
+    "
 }
 
 # Usage: in_chroot <dir> <cmd> [<arg> ...]
@@ -586,79 +639,28 @@ setenforce_restore()
     [ $mode -eq 2 ] || _setenforce $mode || return
 }
 
-# Usage: systemctl_edit [<file|fd>] [--full] [-- UNIT...]
-systemctl_edit()
+# Usage: _yum [NAME=VALUE]... [--] ...
+_yum()
 {
-    local func="${FUNCNAME:-systemctl_edit}"
+    local func="${func:-${FUNCNAME:-_yum}}"
 
-    local full='' file=''
+    local env_vars=''
     while [ $# -gt 0 ]; do
         case "$1" in
-            --) # systemctl edit UNIT...
+            [[:alpha:]_]*=*)
+                env_vars="${env_vars:+$env_vars }'$1'"
+                ;;
+            --)
                 shift
                 break
                 ;;
-            --full)
-                shift
-                full='1'
-                ;;
-             *) # file name or descriptor
-                if [ -n "$file" ]; then
-                    echo >&2 "${func}: expected argument delimiter (--)"
-                    return 1
-                fi
-                file="${1:-0}"
-                shift
+            *)
+                break
                 ;;
         esac
-    done
-    file="${file:-0}"
-
-    # Note that file given by it's name must exist inside $install_root
-    if [ -n "${file##*[^0-9&]*}" -a -n "${file##[0-9&]*&*}" ]; then
-        file="${file#&}"
-        file="&${file:-0}"
-    else
-        file="${file#$install_root}"
-        file="${install_root}${file#/}"
-
-        [ -e "$file" ] || return
-    fi
-
-    local t args=''
-    while [ $# -gt 0 ]; do
-        t="$1"
         shift
-        if [ -z "${t##*\.*}" ]; then
-            t="${install_root}etc/systemd/system/$t"
-            if [ -z "$full" ]; then
-                t="$t.d/"
-                install -d "$t" || continue
-                t="${t}override.conf"
-            fi
-            args="${args:+$args }'${t}'"
-        fi
     done
 
-    local rc=0
-    # Use tee(1) backed by timeout(1) instead of direct
-    # append (>>) by a shell interpreter to avoid block on
-    # write when $file is named pipe (fifo) and process on
-    # other side does not send EOF (e.g. exited due to error).
-    #
-    # Note that it is up to the caller to provide output on
-    # $fd to avoid blocking on read.
-    eval "timeout 5 tee $args >/dev/null 2>&1 <$file || echo \"rc=\$?\""
-
-    # Reload edited unit files unless installed to directory
-    [ -n "${install_root%/}" ] || systemctl 'daemon-reload' ||:
-
-    return $rc
-}
-
-# Usage: _yum ...
-_yum()
-{
     local cmd="exec ${_xargs_yum:+xargs }yum \"\$@\""
 
     set -- \
@@ -671,14 +673,17 @@ _yum()
         ${install_weak_deps:+
             ${has_setopt:+"--setopt=install_weak_deps=$install_weak_deps"}
          } \
+        ${has_setopt:+"--setopt=strict=True"} \
         "$@" \
         #
 
-    if [ -n "${_install_root}" ]; then
-        in_chroot "${_install_root}" "$cmd" - "$@"
-    else
-        setarch "$basearch" /bin/sh -c "$cmd" - "$@"
-    fi || return
+    eval "
+        if [ -n '${_install_root-}' ]; then
+            in_chroot $env_vars '${_install_root}' '$cmd' - \"\$@\"
+        else
+            in_env $env_vars setarch '$basearch' /bin/sh -c '$cmd' - \"\$@\"
+        fi || return
+    "
 }
 
 # Usage: yum ...
@@ -964,7 +969,109 @@ distro_version()
         #
 }
 
-## Post install configuration snippets
+## Pre install configuration snippets
+
+# Usage: config_helpers
+config_helpers()
+{
+    local unpack_dir="$helpers_dir"
+# md5(helpers.tgz.b64) = 2e86e46744f16e1dfe4faace84394cf4
+[ -d "$unpack_dir" ] || install -d "$unpack_dir"
+base64 -d -i <<'helpers.tgz.b64' | tar -zxf - -C "$unpack_dir"
+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
+KZuyKZuyKZuyKZvy/638N0aIZ1EAeAAA
+helpers.tgz.b64
+}
 
 # Usage: config_rpm_gpg
 config_rpm_gpg()
@@ -4079,6 +4186,8 @@ jx9/AW4L9yYA0AcA
 rpm-gpg.tgz.b64
 }
 
+## Post install configuration snippets
+
 # Usage: config_login_banners
 config_login_banners()
 {
@@ -4440,13 +4549,15 @@ _EOF
         done
 
         if is_rocky || is_centos || fedora_version_ge $releasemaj 18; then
-            # Keep opened sessions when xrdp.service stopped or
-            # restarted what is quite common on package upgrade.
-            systemctl cat 'xrdp-sesman.service' | \
-                sed -e '/^\(BindsTo\|StopWhenUnneeded\)=/d' | \
-            systemctl_edit -- --full 'xrdp-sesman.service'
+            in_chroot "$install_root" '
+                # Keep opened sessions when xrdp.service stopped or
+                # restarted what is quite common on package upgrade.
+                systemctl cat xrdp-sesman.service | \
+                    sed -e "/^\(BindsTo\|StopWhenUnneeded\)=/d" | \
+                systemctl --full xrdp-sesman.service
 
-            in_chroot "$install_root" 'systemctl enable xrdp-sesman.service'
+                systemctl enable xrdp-sesman.service
+            '
         fi
 
         in_chroot "$install_root" 'systemctl enable xrdp.service'
@@ -4585,8 +4696,6 @@ config_lvm2()
             #
         in_chroot "$install_root" \
             'systemctl mask lvm2-lvmetad.service lvm2-lvmetad.socket'
-        in_chroot "$install_root" \
-            'systemctl stop lvm2-lvmetad.service lvm2-lvmetad.socket'
     fi
 }
 
@@ -4680,13 +4789,13 @@ config_libvirt()
         fi
 
         if grep -q 'SocketMode=' "${install_root}etc/libvirt/libvirtd.conf"; then
-            systemctl_edit -- 'libvirtd.socket' <<EOF
+            in_chroot "$install_root" systemctl edit 'libvirtd.socket' <<EOF
 [Socket]
 ${libvirt_unix_group:+SocketGroup=$libvirt_unix_group}
 ${libvirt_unix_rw_perms:+SocketMode=$libvirt_unix_rw_perms}
 EOF
 
-            systemctl_edit -- 'libvirtd-ro.socket' <<EOF
+            in_chroot "$install_root" systemctl edit 'libvirtd-ro.socket' <<EOF
 [Socket]
 ${libvirt_unix_group:+SocketGroup=$libvirt_unix_group}
 ${libvirt_unix_rw_perms:+SocketMode=$libvirt_unix_ro_perms}
@@ -6505,7 +6614,7 @@ else
     minimal_install=1
 fi
 
-# $install_root
+# $install_root and $build_info_dir
 if [ -n "$install_root" ]; then
     if [ -e "$install_root" ]; then
         if [ -n "$force" ]; then
@@ -6534,27 +6643,26 @@ else
     install_root='/'
     build_info=''
 fi
+build_info_dir="${install_root}.${prog_name}"
 
 # Install build information
 if [ -n "$build_info" ]; then
-    d="${install_root}.${prog_name}"
-
     # $this
     if [ -e "$this" ]; then
-        install -D "$this" "$d/${_prog_name}"
+        install -D "$this" "$build_info_dir/${_prog_name}"
     fi
 
     # $config
     if [ -n "$config" ]; then
         f="${config##*/}" &&
-            install -D -m 0644 "$config" "$d/$f" &&
+            install -D -m 0644 "$config" "$build_info_dir/$f" &&
         f="${f:+--config=\"\$this_dir/$f\"}"
     else
         f=''
     fi
 
     # run.sh
-    d="$d/run.sh.$$"
+    d="$build_info_dir/run.sh.$$"
     cat >"$d" <<EOF
 #!/bin/sh
 
@@ -6563,7 +6671,7 @@ set -e
 set -u
 #set -x
 
-build_info_dir='${d%/*}'
+build_info_dir='$build_info_dir'
 this_prog='run.sh'
 
 if [ ! -e "\$0" -o "\$0" -ef "/proc/\$\$/exe" ]; then
@@ -6608,7 +6716,7 @@ else
 fi
 EOF
     # install(1) sets executable bits
-    install -D "$d" "${d%.*}"
+    install -D -m 0755 "$d" "${d%.*}"
     rm -f "$d" ||:
 
     unset f d
@@ -6725,42 +6833,6 @@ exit_installed()
     local t f
 
     if :; then
-        ## Add helpers
-        local systemctl_helper="${install_root}bin/systemctl"
-
-        t='command -v systemctl >/dev/null 2>&1'
-        if [ -e "$systemctl_helper" ] || in_chroot "$install_root" "$t"; then
-            systemctl_helper=''
-        else
-            install -d "${systemctl_helper%/*}" ||:
-            cat >"$systemctl_helper" <<'_EOF'
-#!/bin/sh
-
-set -e
-set -u
-#set -x
-
-# See how we are called
-case "${1-}" in
-    'mask'|'disable'|'stop')   cmd='off' ;;
-    'unmask'|'enable'|'start') cmd='on'  ;;
-    *) exit 1
-esac
-
-rc=''
-while shift && [ $# -gt 0 ]; do
-    if name="${1%.*}" && [ -n "$name" ]; then
-        chkconfig "$name" "$cmd" && ret=0 || ret=$?
-        [ -e "/etc/init.d/$name" ] || ret=0
-        : $((rc += ret))
-    fi
-done
-
-exit ${rc:-123}
-_EOF
-            chmod a+rx "$systemctl_helper" ||:
-        fi
-
         # Configure iptables
         config_iptables
 
@@ -6892,11 +6964,6 @@ _EOF
             rm -f "$t" ||:
         fi
 
-        # Remove installed systemctl helper
-        if [ -n "$systemctl_helper" ]; then
-            rm -f "$systemctl_helper" ||:
-        fi
-
         if [ -n "$nodocs" ]; then
             # Directories not excluded from install. They are empty.
             find "${install_root}usr/share/doc" -type d -a -empty -a -delete
@@ -6964,6 +7031,9 @@ exit_handler()
         rm -rf "$t" ||:
     fi
 
+    if [ -n "${helpers_dir-}" ]; then
+        rm -rf "$helpers_dir" ||:
+    fi
     if [ -n "${rpm_gpg_dir-}" ]; then
         rm -rf "$rpm_gpg_dir" ||:
     fi
@@ -7660,24 +7730,26 @@ if [ -n "${install_root%/}" ]; then
 
     [ -d "$f" ] && install -d "$d" && mount --bind "$d" "$f" ||:
 
-    if [ -n "${install_root%/}" ]; then
-        # Need access to resolvers: prefer system, fall back to public
-        f='etc/resolv.conf'
-        d="$install_root$f"
-        f="/$f"
+    # Need access to resolvers: prefer system, fall back to public
+    f='etc/resolv.conf'
+    d="$install_root$f"
+    f="/$f"
 
-        if [ -s "$f" ]; then
-            install -D -m 0644 "$f" "$d"
-        else
-            for f in ${nameservers:-${_nameservers}}; do
-                echo "nameserver $f" >>"$d"
-            done
-        fi
+    if [ -s "$f" ]; then
+        install -D -m 0644 "$f" "$d"
+    else
+        for f in ${nameservers:-${_nameservers}}; do
+            echo "nameserver $f" >>"$d"
+        done
     fi
 
     unset f d
 fi
 cd "$install_root"
+
+# Prepare helpers
+helpers_dir="$build_info_dir/bin"
+config_helpers
 
 # Prepare rpm database
 setarch "$basearch" \
