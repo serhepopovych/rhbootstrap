@@ -5892,13 +5892,70 @@ rsync-wrapper.tgz.b64
 # Usage: config_flatpak
 config_flatpak()
 {
-    if in_chroot "$install_root" 'command -v flatpak >/dev/null 2>&1'
+    if in_chroot "$install_root" \
+        'command -v flatpak >/dev/null 2>&1'
     then
-        in_chroot "$install_root" \
-            'flatpak remote-add --if-not-exists \
-                flathub \
-                https://flathub.org/repo/flathub.flatpakrepo' \
-                #
+        local unpack_dir="$install_root"
+# md5(flatpak.tgz.b64) = 089c3a1de1c053c23df637c08d048b6f
+[ -d "$unpack_dir" ] || install -d "$unpack_dir"
+base64 -d -i <<'flatpak.tgz.b64' | tar -zxf - -C "$unpack_dir"
+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
+flatpak.tgz.b64
     fi
 }
 
