@@ -353,19 +353,43 @@ systemd_unit_edit()
         esac
     done
 
-    local f t args=''
+    local f t args='' tt=' '
     for f in "$@"; do
         _systemd_validate_unit_name "$f" || continue
+
+        # Skip duplicates
+        [ -n "${tt##* $f *}" ] || continue
 
         t="$p/$f"
         if [ -z "$full" ]; then
             t="$t.d/"
-            install -d "$t"
-            t="${t}override.conf"
-        fi && args="${args:+$args }'$t'" || rc=$((rc + $?))
+            if install -d "$t"; then
+                t="${t}override.conf"
+            else
+                rc=$((rc + $?))
+                continue
+            fi
+        fi
+        args="${args:+$args }'$t.$$'"
+
+        tt="$tt$f "
     done
 
-    eval "tee $args >/dev/null 2>&1 || rc=\$((rc + \$?))"
+    if [ -n "$args" ]; then
+        eval "set -- $args"
+        if tee "$@" >/dev/null 2>&1; then
+            for f in "$@"; do
+                if mv -f "$f" "${f%.$$}"; then
+                    :
+                else
+                    rc=$((rc + $?))
+                    rm -f "$f" ||:
+                fi
+            done
+        else
+            rc=$((rc + $?))
+        fi
+    fi
 
     return $rc
 }
