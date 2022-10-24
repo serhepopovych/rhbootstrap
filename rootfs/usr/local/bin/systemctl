@@ -42,6 +42,8 @@ export PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
 readonly systemd_lib_unit='/lib/systemd/system'
 readonly systemd_etc_unit='/etc/systemd/system'
 
+readonly prog_name="${0##*/}"
+
 # Usage: _systemd_validate_unit_name <unit>
 _systemd_validate_unit_name()
 {
@@ -419,26 +421,50 @@ systemd_set_default()
     local u="${systemd_unit:-$systemd_etc_unit}"
     local p="${root-}/${u#/}"
 
-    ln -snf "$target" "$p/default.target" || return
+    local f
+    for f in \
+        "${u##$systemd_etc_unit}" \
+        "$systemd_etc_unit" \
+        "$systemd_lib_unit" \
+        #
+    do
+        if [ -n "$f" ]; then
+            if [ -n "${target##/*}" ]; then
+                f="$f/$target"
+            else
+                f="$target"
+            fi
+            if [ -f "${root-}$f" ]; then
+                ln -snf "$f" "$p/default.target" || return
+                return 0
+            fi
+        fi
+    done
+
+    return 1
 }
 
 # Usage: systemd_get_default
 systemd_get_default()
 {
-    local u='default.target'
+    local u="${systemd_unit:-$systemd_etc_unit}"
+    local p="${root-}/${u#/}"
 
     local f
     for f in \
+        "${u##$systemd_etc_unit}" \
         "$systemd_etc_unit" \
         "$systemd_lib_unit" \
         #
     do
-        f="${root-}$f/$u"
-        if [ -L "$f" ] &&
-           f="$(readlink "$f" 2>/dev/null)"
-        then
-            printf -- '%s\n' "${f##*/}"
-            return 0
+        if [ -n "$f" ]; then
+            f="${root-}$f/default.target"
+            if [ -L "$f" ] &&
+               f="$(readlink "$f" 2>/dev/null)"
+            then
+                printf -- '%s\n' "${f##*/}"
+                return 0
+            fi
         fi
     done
 
@@ -526,7 +552,7 @@ EOF
             : ${initman:?missing or empty variable}
             :  ${action:?missing or empty variable}
 
-            printf >&2  -- '%s: "%s" unsupported command "%s"\n' \
+            printf >&2  -- '%s: %s unsupported command "%s"\n' \
                 "$func" "$initman" "$action" \
                 #
 
@@ -537,7 +563,7 @@ EOF
 
     local rc=''
     if [ $# -gt 0 ]; then
-        local action="${1-}"
+        local action="$1"
         case "$action" in
             'help'|'usage')
                 _usage ||:
@@ -546,6 +572,9 @@ EOF
             '')
                 printf >&2 -- '%s: missing first argument <action>\n' "$func"
                 ! : || _usage || rc=$?
+                ;;
+             *)
+                shift
                 ;;
         esac
     else
@@ -715,12 +744,19 @@ EOF
                 "$action" "$@" || rc=$?
                 ;;
             *)
-                local f
-                for f in "$@"; do
-                    if [ -n "$f" ]; then
-                        "$action" "$@" || rc=$((rc + $?))
-                    fi
-                done
+                case "$action" in
+                    *_get_default)
+                        "$action" || rc=$((rc + $?))
+                        ;;
+                    *)
+                        local f
+                        for f in "$@"; do
+                            if [ -n "$f" ]; then
+                                "$action" "$f" || rc=$((rc + $?))
+                            fi
+                        done
+                        ;;
+                esac
                 ;;
         esac
 
