@@ -5746,7 +5746,7 @@ xfce4.tgz.b64
             local p2='\1type="string" value="light-locker-command --lock"/>'
 
             local t='.config/xfce4/xfconf/xfce-perchannel-xml/xfce4-session.xml'
-            sed -i "$unpack_dir$t" \
+            sed -i "$unpack_dir/$t" \
                 -e "s,$p1,$p2,g" \
                 #
         fi
@@ -5859,7 +5859,7 @@ rsync-wrapper.tgz.b64
                 fi
                 [ -d \"\$t\" ] || t=''
                 # / is not allowed as skel: returns t=''
-                echo \"t='\${t%/}'\"
+                echo \"t='\${t#/}'\"
             "
         )
         if [ -n "$t" ]; then
