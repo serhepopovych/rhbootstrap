@@ -4788,7 +4788,9 @@ config_libvirt()
                 #
         fi
 
-        if grep -q 'SocketMode=' "${install_root}etc/libvirt/libvirtd.conf"; then
+        if grep -q 'is not required or honoured if using systemd socket$' \
+            "${install_root}etc/libvirt/libvirtd.conf"
+        then
             in_chroot "$install_root" systemctl edit 'libvirtd.socket' <<EOF
 [Socket]
 ${libvirt_unix_group:+SocketGroup=$libvirt_unix_group}
