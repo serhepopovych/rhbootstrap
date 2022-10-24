@@ -80,6 +80,127 @@ umask 0022
 true()  {   :; }
 false() { ! :; }
 
+# Usage: shell_type_builtin <name>
+shell_type_builtin()
+{
+    local func="${func:-${FUNCNAME:-shell_type_builtin}}"
+    local name="${1:?missing 1st arg to ${func}() <name>}"
+
+    local line
+    line="$(
+        {
+            type "$name" | {
+                read -r line
+                printf -- '%s\n' "$line"
+            }
+        } 2>/dev/null
+    )" || return 123
+
+    # bash(1) type is 'alias', 'keyword', 'function', 'builtin', or 'file'
+    case "$line" in
+        *\ */*)
+            # file
+            return 5
+            ;;
+        *\ alias\ *|*\ aliased\ *)
+            # alias
+            return 1
+            ;;
+        *\ keyword|*\ reserved\ word)
+            # keyword
+            return 2
+            ;;
+        *\ function)
+            # function
+            return 3
+            ;;
+        *\ builtin)
+            # builtin
+            return 4
+            ;;
+        *)
+            # unknown
+            return 0
+            ;;
+    esac
+}
+
+# Usage: shell_type_t_builtin <name>
+shell_type_t_builtin()
+{
+    local func="${FUNCNAME:-shell_type_t_builtin}"
+
+    local rc=0
+    shell_type_builtin "$@" || rc=$?
+
+    local t_0='unknown'
+    local t_1='alias'
+    local t_2='keyword'
+    local t_3='function'
+    local t_4='builtin'
+    local t_5='file'
+
+    eval "local t=\"\${t_${rc}-}\""
+    [ -n "$t" ] || return
+
+    printf -- '%s\n' "$t"
+}
+
+# Usage: shell_type_is_alias <name>
+shell_type_is_alias()
+{
+    local func="${FUNCNAME:-shell_type_is_alias}"
+
+    local rc=0
+    shell_type_builtin "$@" || rc=$?
+
+    [ $rc -eq 1 ] || return
+}
+
+# Usage: shell_type_is_keyword <name>
+shell_type_is_keyword()
+{
+    local func="${FUNCNAME:-shell_type_is_keyword}"
+
+    local rc=0
+    shell_type_builtin "$@" || rc=$?
+
+    [ $rc -eq 2 ] || return
+}
+
+# Usage: shell_type_is_function <name>
+shell_type_is_function()
+{
+    local func="${FUNCNAME:-shell_type_is_function}"
+
+    local rc=0
+    shell_type_builtin "$@" || rc=$?
+
+    [ $rc -eq 3 ] || return
+}
+
+# Usage: shell_type_is_builtin <name>
+shell_type_is_builtin()
+{
+    local func="${FUNCNAME:-shell_type_is_builtin}"
+
+    local rc=0
+    shell_type_builtin "$@" || rc=$?
+
+    [ $rc -eq 4 ] || return
+}
+
+# Usage: shell_type_is_file <name>
+shell_type_is_file()
+{
+    local func="${FUNCNAME:-shell_type_is_file}"
+
+    local rc=0
+    shell_type_builtin "$@" || rc=$?
+
+    [ $rc -eq 5 ] || return
+}
+
 # Usage: msg <fmt> ...
 msg()
 {
@@ -7629,20 +7750,65 @@ distro_fedora()
 
     local host subdir url
 
-    # $releasever
-    if [ -z "$releasever" ]; then
-        # Default Fedora version is latest
-        releasever='36'
-        releasemaj='36'
-    else
-        releasemaj="${releasever%%.*}"
+    # Usage: _fedora_releasever_latest
+    _fedora_releasever_latest()
+    {
+        local func="${FUNCNAME:-_fedora_releasever_latest}"
 
-        if [ $releasemaj -lt 12 ]; then
-            if [ $releasemaj -lt 10 ]; then
-                fatal 'no support for Fedora before 10 (Fedora Core?)\n'
+        local url='https://dl.fedoraproject.org/pub/fedora/linux/releases/'
+        local min=${fedora_releasever_min:-10} max=${fedora_release_max:-99}
+        local releasever
+        local r
+
+        [ $max -ge $min ] ||
+            abort '%s: min greather than max\n' "$func"
+
+        t="$(
+            safe_curl "$url" $((128*1024)) -L |\
+            sed -n -e 's,^.*<a href=.\+>\([[:digit:]]\+\)/\?</a>.*$,\1,p'
+        )" ||:
+
+        # Pick highest parsed version or hint if none
+        releasever=$min
+        for r in ${t:-$releasever}; do
+            if [ $r -gt $releasever ]; then
+                releasever=$r
             fi
-            has_setopt=''
+        done
+        [ $releasever -gt $min ] || releasever=$max
+
+        r=$releasever
+        while ! safe_curl "$url$r/Everything/" $((128*1024)) -L >/dev/null; do
+            if [ $r -le $min ]; then
+                releasever=''
+                break
+            else
+                : $((r -= 1))
+            fi
+        done
+
+        [ -n "$releasever" ] && printf -- '%s\n' "$releasever" || return
+    }
+    readonly fedora_releasever_min=10
+    readonly fedora_releasever_max=99
+
+    readonly fedora_releasever_latest="$(_fedora_releasever_latest)" ||
+        fatal 'unable to determine latest Fedora release version\n'
+
+    unset -f _fedora_releasever_latest
+
+    # $releasever
+    [ -n "$releasever" ] || releasever="$fedora_releasever_latest"
+
+    releasemaj="${releasever%%.*}"
+
+    if [ $releasemaj -lt 12 ]; then
+        if [ $releasemaj -lt $fedora_releasever_min ]; then
+            fatal 'no support for Fedora before %u (Fedora Core?)\n' \
+                $fedora_releasever_min \
+                #
         fi
+        has_setopt=''
     fi
 
     # $subdir
@@ -7994,6 +8160,7 @@ fi
 
 ## Release specific tricks
 
+pkg_xfce_screensaver=1
 pkg_remmina_plugins_secret=1
 pkg_wireshark_gnome=1
 pkg_xorg_x11_utils=1
@@ -8084,84 +8251,104 @@ pkg_xorg_x11_utils=1
         fi
     fi
 elif is_fedora; then
-    if [ $releasemaj -le 28 ]; then
-        if [ $releasemaj -le 27 ]; then
-            if [ $releasemaj -le 26 ]; then
-                if [ $releasemaj -le 25 ]; then
-                    if [ $releasemaj -le 24 ]; then
-                        if [ $releasemaj -le 23 ]; then
-                            if [ $releasemaj -le 19 ]; then
-                                if [ $releasemaj -le 18 ]; then
-                                    if [ $releasemaj -le 17 ]; then
-                                        if [ $releasemaj -le 16 ]; then
-                                            if [ $releasemaj -le 15 ]; then
-                                                if [ $releasemaj -le 14 ]; then
-                                                    if [ $releasemaj -le 12 ]; then
-                                                        if [ $releasemaj -le 11 ]; then
-                                                            pkg_dracut=
-                                                            [ "${x11_server-}" != 'Xrdp' ] ||
-                                                                x11_server='Xorg'
-                                                        fi # <= 11
-                                                        pkg_vdpau=
-                                                    fi # <= 12
-                                                    pkg_va=
-                                                fi # <= 14
-                                                [ "${x11_server-}" != 'Xspice' ] ||
-                                                    x11_server='Xorg'
-                                            fi # <= 15
-                                            pkg_ipxe_bootimgs=
-                                        fi # <= 16
-                                        pkg_shim=
-                                        pkg_mate=
-                                    fi # <= 17
-                                    pkg_va_vdpau_driver=
-                                fi # <= 18
-                                [ "${x11_server-}" != 'x2go' ] ||
-                                    x11_server='Xorg'
-                            fi # <= 19
-                            pkg_flatpak=
-                        fi # <= 23
-                        pkg_glvnd=
+    ## <= $releasemaj
 
-                        pkg_chromium=
-                        pkg_pidgin_hangouts=
-
-                        pkg_nm_openconnect=
-                        pkg_nm_l2tp=
-                    fi # <= 24
-                    pkg_driverctl=
-
-                    pkg_slick_greeter=
-
-                    pkg_glvnd_egl=
-                    pkg_glvnd_gles=
-                    pkg_glvnd_glx=
-                fi # <= 25
-                pkg_va_intel_hybrid_driver=
-            fi # <= 26
-            pkg_iucode_tool=
-            pkg_remmina_plugins_secret=
-        fi # <= 27
+    fedora_le_11() {
+        pkg_dracut=
+        [ "${x11_server-}" != 'Xrdp' ] || x11_server='Xorg'
+    }
+    fedora_le_12() {
+        pkg_vdpau=
+    }
+    fedora_le_14() {
+        pkg_va=
+    }
+    fedora_le_15() {
+        [ "${x11_server-}" != 'Xspice' ] || x11_server='Xorg'
+    }
+    fedora_le_16() {
+        pkg_ipxe_bootimgs=
+    }
+    fedora_le_17() {
+        pkg_shim=
+        pkg_mate=
+    }
+    fedora_le_18() {
+        pkg_va_vdpau_driver=
+    }
+    fedora_le_19() {
+        [ "${x11_server-}" != 'x2go' ] || x11_server='Xorg'
+    }
+    fedora_le_23() {
+        pkg_flatpak=
+    }
+    fedora_le_24() {
+        pkg_glvnd=
+        pkg_chromium=
+        pkg_pidgin_hangouts=
+        pkg_nm_openconnect=
+        pkg_nm_l2tp=
+    }
+    fedora_le_25() {
+        pkg_driverctl=
+        pkg_slick_greeter=
+        pkg_glvnd_egl=
+        pkg_glvnd_gles=
+        pkg_glvnd_glx=
+    }
+    fedora_le_26() {
+        pkg_va_intel_hybrid_driver=
+    }
+    fedora_le_27() {
+        pkg_iucode_tool=
+        pkg_remmina_plugins_secret=
+    }
+    fedora_le_28() {
         pkg_network_scripts=
-    fi # <= 28
-    if [ $releasemaj -ge 24 ]; then
-        if [ $releasemaj -ge 34 ]; then
-            if [ $releasemaj -gt 34 ]; then
-                pkg_xorg_x11_utils=
+    }
+    fedora_le_29() {
+        pkg_xfce_screensaver=
+    }
 
-                pkg_icedtea_web=
+    r=$releasemaj
+    while :; do
+        f="fedora_le_${r}"
+        if shell_type_is_function "$f"; then
+            "$f"
+        fi
+        [ $((r += 1)) -le $fedora_releasever_latest ] || break
+    done
 
-                pkg_libreoffice_rhino=0
+    ## >= $releasemaj
 
-                pkg_remmina_plugins_nx=
-                pkg_remmina_plugins_xdmcp=
-            fi
-            pkg_orage=
-            pkg_ntpdate=
-        fi # >= 34
+    fedora_ge_24() {
         pkg_wireshark_gnome=
-    fi # >= 24
+    }
+    fedora_ge_34() {
+        pkg_orage=
+        pkg_ntpdate=
+    }
+    fedora_ge_35() {
+        pkg_xorg_x11_utils=
+        pkg_icedtea_web=
+        pkg_libreoffice_rhino=0
+        pkg_remmina_plugins_nx=
+        pkg_remmina_plugins_xdmcp=
+    }
+
+    r=$releasemaj
+    while :; do
+        f="fedora_ge_${r}"
+        if shell_type_is_function "$f"; then
+            "$f"
+        fi
+        [ $((r -= 1)) -ge $fedora_releasever_min ] || break
+    done
+
+    ## common
     pkg_libguestfs_winsupport=
+
+    unset f r
 fi
 
 ## List of packages to install
@@ -8752,11 +8939,13 @@ if [ -n "${pkg_xfce-}" ]; then
         xfce4-about
         xfce4-taskmanager
         xfce4-terminal
-        xfce4-screensaver
         xfce4-screenshooter
 
         gnome-themes-standard
     "
+
+    # xfce4-screensaver
+    [ -z "${pkg_xfce_screensaver-}" ] || PKGS="$PKGS xfce4-screensaver"
 
     if [ -n "${pkg_thunar-}" ]; then
         PKGS="$PKGS Thunar"
