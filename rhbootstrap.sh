@@ -7585,7 +7585,7 @@ distro_rhel()
             # Default CentOS version is 8-stream
             releasever='8-stream'
         else
-            # Default Rocky/other version is 8
+            # Default Rocky/other version is 9
             releasever='9'
         fi
     fi
@@ -7616,6 +7616,10 @@ distro_rhel()
     if version_ge $releasever 8.6; then
         # Since RHEL 8.6 advanced-virtualization merged to @appstream
         # https://forums.rockylinux.org/t/will-virt-stream-advanced-virtualization-come-to-rocky-linux/3348/11
+        #
+        # Note that centos-release-advanced-virtualization package may still
+        # be available for Rocky/other and provide valid repository whose
+        # contents is outdated and not aligned with current @appstream.
         repo_advanced_virtualization=''
     fi
 
