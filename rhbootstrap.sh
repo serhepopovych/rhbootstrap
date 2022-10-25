@@ -7208,7 +7208,7 @@ exit_handler()
 
     if [ -n "${install_root%/}" ]; then
         # Unmount bind-mounted filesystems
-        for t in 'proc/1' 'proc' 'sys' 'dev'; do
+        for t in 'proc' 'sys' 'dev'; do
             t="$install_root$t"
             ! mountpoint -q "$t" || umount "$t"
         done
@@ -7954,12 +7954,6 @@ if [ -n "${install_root%/}" ]; then
     done
     # f="${install_root}etc/mtab"
     ln -snf '../proc/self/mounts' "$f" ||:
-
-    # Hide /proc/1 from target (e.g. for rpm pre/post scripts)
-    f="${install_root}proc/1"
-    d="${install_root}.tmp/1"
-
-    [ -d "$f" ] && install -d "$d" && mount --bind "$d" "$f" ||:
 
     # Need access to resolvers: prefer system, fall back to public
     f='etc/resolv.conf'
