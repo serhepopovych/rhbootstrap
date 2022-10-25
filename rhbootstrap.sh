@@ -7542,6 +7542,24 @@ distro_rhel()
         if [ -n "$repo_nfv_openvswitch" ]; then
             in_chroot_yum -y install "$NFV_OPENVSWITCH_RELEASE_RPM" &&
                 has_enable 'repo' || repo_nfv_openvswitch=''
+
+            # Rocky's centos-release-nfv-common has broken/outdated postinst
+            # script that configures for CentOS 8 that is now deprecated
+            # instead of CentOS 8-stream.
+            #
+            # Note that CentOS's centos-release-nfv-common has correct postinst.
+            if rocky_version_eq $releasemaj 8; then
+                for f in \
+                    "${install_root}etc/yum/vars/nfvsigdist" \
+                    "${install_root}etc/dnf/vars/nfvsigdist" \
+                    #
+                do
+                    if [ -s "$f" ] && read -r v <"$f" && [ "$v" = '8' ]; then
+                        echo '8-stream' >"$f"
+                        break
+                    fi
+                done
+            fi
         fi
 
         # Repositories might provide updated package versions
