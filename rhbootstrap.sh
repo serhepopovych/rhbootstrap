@@ -4581,6 +4581,11 @@ dnsmasq.tgz.b64
             in_chroot "$install_root" 'systemctl disable network.service'
         fi
     fi
+
+    # Enable OpenvSwitch
+    if [ -f "${install_root}etc/sysconfig/openvswitch" ]; then
+        in_chroot "$install_root" 'systemctl enable openvswitch.service'
+    fi
 }
 
 # Usage: config_xorg
