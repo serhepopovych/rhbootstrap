@@ -7582,8 +7582,8 @@ distro_rhel()
     # $releasever
     if [ -z "$releasever" ]; then
         if is_centos; then
-            # Default CentOS version is 8-stream
-            releasever='8-stream'
+            # Default CentOS version is 9-stream
+            releasever='9-stream'
         else
             # Default Rocky/other version is 9
             releasever='9'
@@ -7674,13 +7674,17 @@ distro_rhel()
     elif is_centos; then
         host='centos.org'
 
-        if [ $releasemaj -le 7 ]; then
-            # These is not available on CentOS/others <= 7
-            repo_nfv_openvswitch=''
-        fi
-
         # $subdir
         subdir='centos'
+
+          if [ $releasemaj -le 7 ]; then
+            # These is not available on CentOS/others <= 7
+            repo_nfv_openvswitch=''
+        elif [ $releasemaj -ge 9 ]; then
+            host="stream.$host"
+            subdir=''
+        fi
+
         case "$basearch" in
             'i386')
                 # Pick CentOS 7 AltArch, which is last with i386 support,
