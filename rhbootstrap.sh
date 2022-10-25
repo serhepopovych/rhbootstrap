@@ -5509,22 +5509,24 @@ _EOF
         )
 
         # Update GRUB2 configuration file
-        in_chroot "$install_root" '
-              if command -v grub2-mkconfig >/dev/null 2>&1; then
-                grub2_mkconfig() { exec grub2-mkconfig "$@"; }
-            elif command -v update-grub2   >/dev/null 2>&1; then
-                grub2_mkconfig() { exec update-grub2; }
-            else
-                grub2_mkconfig() {
-                    echo >&2 "No GRUB2 config management tool found."
-                    exit 1
-                }
-            fi
-            [ ! -L /etc/grub2.cfg ] ||
-                grub2_mkconfig -o "$(readlink -f /etc/grub2.cfg)"
-            [ ! -L /etc/grub2-efi.cfg ] ||
-                grub2_mkconfig -o "$(readlink -f /etc/grub2-efi.cfg)"
-        '
+        if [ -z "${install_root%/}" ]; then
+            in_chroot "$install_root" '
+                  if command -v grub2-mkconfig >/dev/null 2>&1; then
+                    grub2_mkconfig() { exec grub2-mkconfig "$@"; }
+                elif command -v update-grub2   >/dev/null 2>&1; then
+                    grub2_mkconfig() { exec update-grub2; }
+                else
+                    grub2_mkconfig() {
+                        echo >&2 "No GRUB2 config management tool found."
+                        exit 1
+                    }
+                fi
+                [ ! -L /etc/grub2.cfg ] ||
+                    grub2_mkconfig -o "$(readlink -f /etc/grub2.cfg)"
+                [ ! -L /etc/grub2-efi.cfg ] ||
+                    grub2_mkconfig -o "$(readlink -f /etc/grub2-efi.cfg)"
+            '
+        fi
     fi
 }
 
