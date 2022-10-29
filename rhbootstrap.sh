@@ -8231,6 +8231,7 @@ pkg_xorg_x11_utils=1
             pkg_dash=
             pkg_zsh_syntax_highlighting=
 
+            pkg_nm_strongswan=
             pkg_network_scripts=
 
             pkg_bluez_hid2hci=
@@ -8276,15 +8277,39 @@ pkg_xorg_x11_utils=1
         pkg_remmina_plugins_xdmcp=
 
         pkg_nm_vpnc=
-        pkg_nm_strongswan=
     else
-        if [ $releasemaj -eq 7 ]; then
-            :
-        else
-            pkg_cockpit=
-            pkg_ipxe_bootimgs=
-        fi
+        if version_lt $releasemm 7.5; then
+            if version_lt $releasemm 7.4; then
+                if version_lt $releasemm 7.1; then
+                    if [ $releasemaj -lt 7 ]; then
+                        if [ $releasemaj -lt 6 ]; then
+                            pkg_nm_modem=
+                        fi # < 6
+                        pkg_nm_tui=
+                        pkg_nm_libreswan=
+                        pkg_ipxe_bootimgs=
+                    fi # < 7
+                    pkg_nm_team=
+                    pkg_nm_adsl=
+                    pkg_nm_wifi=
+                    pkg_nm_bluez=
+                    pkg_nm_wwan=
+                fi # < 7.1
+                pkg_cockpit=
+            fi # < 7.4
+            pkg_nm_ovs=
+        fi # < 7.5
     fi
+
+    if [ -z "$has_epel" ]; then
+        pkg_nm_openvpn=
+        pkg_nm_openconnect=
+        pkg_nm_vpnc=
+        pkg_nm_strongswan=
+        pkg_nm_l2tp=
+        pkg_nm_pptp=
+    fi
+    pkg_nm_ssh=
 elif is_fedora; then
     ## <= $releasemaj
 
@@ -8309,15 +8334,34 @@ elif is_fedora; then
         pkg_mate=
     }
     fedora_le_18() {
+        pkg_nm_ssh=
         pkg_va_vdpau_driver=
     }
     fedora_le_19() {
+        pkg_nm_openvpn=
+        pkg_nm_pptp=
+        pkg_nm_vpnc=
         [ "${x11_server-}" != 'x2go' ] || x11_server='Xorg'
     }
+    fedora_le_20() {
+        pkg_nm_adsl=
+        pkg_nm_wifi=
+        pkg_nm_bluez=
+        pkg_nm_wwan=
+    }
+    fedora_le_21() {
+        pkg_nm_team=
+    }
     fedora_le_23() {
+        # gnome
+        pkg_nm_libreswan=
+        pkg_nm_strongswan=
         pkg_flatpak=
     }
     fedora_le_24() {
+        # gnome
+        pkg_nm_l2tp=
+        pkg_nm_openconnect=
         pkg_glvnd=
         pkg_chromium=
         pkg_pidgin_hangouts=
@@ -9616,7 +9660,7 @@ if [ -n "${pkg_nm-}" ]; then
 
         [ -z "${pkg_nm_libreswan-}" ] ||
             PKGS="$PKGS NetworkManager-libreswan-gnome"
-        [ -z "${pkg_nm_openswan-}" ] ||
+        [ -z "${pkg_nm_strongswan-}" ] ||
             PKGS="$PKGS NetworkManager-strongswan-gnome"
 
         [ -z "${pkg_nm_l2tp-}" ] ||
