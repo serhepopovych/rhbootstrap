@@ -24,8 +24,8 @@
 
 # Requires: mountpoint(1), chroot(1), find(1), xargs(1), install(1), head(1),
 #           sed(1), mv(1), rm(1), ln(1), cat(1), rpm(1), yum(1), curl(1), id(1),
-#           uname(1), mount(8), umount(8), setarch(8), chmod(1), mktemp(1),
-#           base64(1), tr(1), date(1), timeout(1), tee(1)
+#           uname(1), mount(8), umount(8), setarch(8), chmod(1), rmdir(1),
+#           base64(1), tr(1), date(1), timeout(1), tee(1),
 
 # Set option(s)
 set -e
@@ -534,7 +534,7 @@ _env()
     local _env_exec="${_env_exec-}"
     [ -z "${_env_exec}" ] || _env_exec='exec'
 
-    local H="${helpers_dir-}"
+    local H="${helpers_dir:+${helpers_dir%/}}"
     local P='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'
 
     ${_env_exec} env -i \
@@ -625,7 +625,7 @@ host_gpg_import()
     local func="${FUNCNAME:-host_gpg_import}"
 
     local gpgkey="${1:?missing 1st arg to ${func}() <gpgkey>}"
-    gpgkey="$rpm_gpg_dir/${gpgkey#$rpm_gpg_dir/}"
+    gpgkey="$rpm_gpg_dir${gpgkey#$rpm_gpg_dir}"
 
     setarch "$basearch" \
         rpm --root="$install_root" \
@@ -639,7 +639,7 @@ in_chroot_gpg_import()
     local func="${FUNCNAME:-in_chroot_gpg_import}"
 
     local gpgkey="${1:?missing 1st arg to ${func}() <gpgkey>}"
-    gpgkey="$rpm_gpg_dir/${gpgkey#$rpm_gpg_dir/}"
+    gpgkey="$rpm_gpg_dir${gpgkey#$rpm_gpg_dir}"
 
     in_chroot <"$gpgkey" "$install_root" "rpm --import '/dev/stdin'" || return
 }
@@ -6834,26 +6834,26 @@ else
     install_root='/'
     build_info=''
 fi
-build_info_dir="${install_root}.${prog_name}"
+build_info_dir="${install_root}.${prog_name}/"
 
 # Install build information
 if [ -n "$build_info" ]; then
     # $this
     if [ -e "$this" ]; then
-        install -D "$this" "$build_info_dir/${_prog_name}"
+        install -D "$this" "$build_info_dir${_prog_name}"
     fi
 
     # $config
     if [ -n "$config" ]; then
         f="${config##*/}" &&
-            install -D -m 0644 "$config" "$build_info_dir/$f" &&
+            install -D -m 0644 "$config" "$build_info_dir$f" &&
         f="${f:+--config=\"\$this_dir/$f\"}"
     else
         f=''
     fi
 
     # run.sh
-    d="$build_info_dir/run.sh.$$"
+    d="${build_info_dir}run.sh.$$"
     cat >"$d" <<EOF
 #!/bin/sh
 
@@ -6862,7 +6862,7 @@ set -e
 set -u
 #set -x
 
-build_info_dir='$build_info_dir'
+build_info_dir='${build_info_dir%/}'
 this_prog='run.sh'
 
 if [ ! -e "\$0" -o "\$0" -ef "/proc/\$\$/exe" ]; then
@@ -7228,6 +7228,7 @@ exit_handler()
     if [ -n "${rpm_gpg_dir-}" ]; then
         rm -rf "$rpm_gpg_dir" ||:
     fi
+    [ -n "$build_info" ] || rmdir "$build_info_dir" ||:
 
     return $rc
 }
@@ -7453,7 +7454,7 @@ distro_rhel()
                     #
             fi
 
-            in_chroot <"$rpm_gpg_dir/epel/RPM-GPG-KEY-EPEL-$releasemaj" \
+            in_chroot <"${rpm_gpg_dir}epel/RPM-GPG-KEY-EPEL-$releasemaj" \
                 "$install_root" \
                 "
                  rpm --import '/dev/stdin' && {
@@ -7494,7 +7495,7 @@ distro_rhel()
 
         # ELRepo
         if [ -n "$repo_elrepo" ]; then
-            in_chroot <"$rpm_gpg_dir/elrepo/RPM-GPG-KEY-elrepo.org" \
+            in_chroot <"${rpm_gpg_dir}elrepo/RPM-GPG-KEY-elrepo.org" \
                 "$install_root" \
                 "
                  rpm --import '/dev/stdin' && {
@@ -7507,7 +7508,7 @@ distro_rhel()
 
         # RPM Fusion
         if [ -n "$repo_rpmfusion" ]; then
-            in_chroot <"$rpm_gpg_dir/rpmfusion/RPM-GPG-KEY-rpmfusion-free-el-$releasemaj" \
+            in_chroot <"${rpm_gpg_dir}rpmfusion/RPM-GPG-KEY-rpmfusion-free-el-$releasemaj" \
                 "$install_root" \
                 "
                  rpm --import '/dev/stdin' && {
@@ -7963,7 +7964,7 @@ eval $(
 [ -n "${updatesrepo-}" ] || updatesurl=''
 
 # Extract gpg keys used to sign rpm in repos
-rpm_gpg_dir="$(mktemp -d -p '' 'rpm-gpg.XXXXXXXX')" || exit
+rpm_gpg_dir="${build_info_dir}rpm-gpg/" || exit
 config_rpm_gpg
 
 # Prepare filesystem
@@ -8004,7 +8005,7 @@ fi
 cd "$install_root"
 
 # Prepare helpers
-helpers_dir="$build_info_dir/bin"
+helpers_dir="${build_info_dir}bin/"
 config_helpers
 
 # Prepare rpm database
