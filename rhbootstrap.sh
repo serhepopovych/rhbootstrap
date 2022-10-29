@@ -8235,6 +8235,9 @@ pkg_xorg_x11_utils=1
 
             pkg_bluez_hid2hci=
             pkg_vdpau=
+
+            # No SPICE on RHEL 9+
+            [ "${x11_server-}" != 'Xspice' ] || x11_server='Xrdp'
         fi
 
         # Disable groups that not available for RHEL 8+
