@@ -249,24 +249,19 @@ systemd_unit_disable()
     )"
     [ -n "$links" ] || return 0
 
-    local f l
+    local f r="${root-}"
     for f in $(systemd_unit_find 'Install' 'Also' "$@"); do
         u="${f##*/}"
         # Skip template unit
         [ -n "${u##*@.*}" ] || continue
 
         for u in $links; do
-            l="${u%=$f}"
-            [ "$l" = "$u" ] || printf -- '%s\n' "$l"
+            # lib -> usr/lib
+            if [ "$r${u#*=}" -ef "$r$f" ]; then
+                printf -- '%s\n' "${u%=*}"
+            fi
         done
     done | xargs rm -f || rc=$((rc + $?))
-
-    # Do not remove directories left empty
-    : || for u in $links; do
-        l="${u%=*}" && l="${l%/*}"
-        [ "$l" != "$p" -a -d "$l" ] || continue
-        rmdir "$l" >/dev/null 2>&1 ||:
-    done
 
     return $rc
 }
@@ -796,8 +791,12 @@ EOF
         sysvinit_chkconfig_mask \
         sysvinit_updatercd_unmask \
         sysvinit_chkconfig_unmask \
-        sysvinit_get_default \
+        sysvinit_updatercd_edit \
+        sysvinit_chkconfig_edit \
+        sysvinit_updatercd_cat \
+        sysvinit_chkconfig_cat \
         sysvinit_set_default \
+        sysvinit_get_default \
         _command_not_supported \
         #
 
