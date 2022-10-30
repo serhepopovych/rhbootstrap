@@ -5023,6 +5023,48 @@ Match User $user
     fi
 }
 
+# Usage: config_lm_sensors
+config_lm_sensors()
+{
+    if [ -f "${install_root}etc/sysconfig/lm_sensors" ]; then
+        # Add systemd(1) override to skip service startup in
+        # virtualized environment and disable service explicitly
+        # as it requires manual configuration.
+        in_chroot "$install_root" '
+            p="
+ConditionVirtualization="
+            if t="$(systemctl cat lm_sensors.service 2>/dev/null)" &&
+               [ -n "${t##*$p*}" ]
+            then
+                systemctl edit lm_sensors.service
+            fi
+            systemctl disable lm_sensors.service
+        ' <<'_EOF'
+[Unit]
+ConditionVirtualization=no
+_EOF
+    fi
+}
+
+# Usage: config_mcelog
+config_mcelog()
+{
+    if [ -f "${install_root}etc/mcelog/mcelog.conf" ]; then
+        in_chroot "$install_root" '
+            p="
+ConditionVirtualization="
+            if t="$(systemctl cat mcelog.service 2>/dev/null)" &&
+               [ -n "${t##*$p*}" ]
+            then
+                systemctl edit mcelog.service
+            fi
+        ' <<'_EOF'
+[Unit]
+ConditionVirtualization=no
+_EOF
+    fi
+}
+
 # Usage: config_readonly_root
 config_readonly_root()
 {
@@ -7082,15 +7124,11 @@ exit_installed()
             config_virt_p2v
         fi
 
-        # Disable lm_sensors as they require explicit configuration
-        if [ -f "${install_root}etc/sysconfig/lm_sensors" ]; then
-            in_chroot "$install_root" 'systemctl disable lm_sensors.service'
-        fi
+        # Configure lm_sensors
+        config_lm_sensors
 
-        # Disable mcelog as it might fail to run in virtualized environment
-        if [ -f "${install_root}etc/mcelog/mcelog.conf" ]; then
-            in_chroot "$install_root" 'systemctl disable mcelog.service'
-        fi
+        # Configure mcelog
+        config_mcelog
 
         # Enable display-manager.service and set-default to graphical.target
         if [ -n "${has_dm-}" ]; then
