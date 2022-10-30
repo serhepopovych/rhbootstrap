@@ -33,7 +33,7 @@ timezone UTC --utc
 network --device=link --bootproto=dhcp --ipv6=auto --hostname=localhost.localdomain --no-activate
 
 # System services
-services --enabled=chronyd,ipset,iptables,ip6tables
+services --enabled=chronyd,iptables,ip6tables
 
 %include /tmp/storage.txt
 
@@ -76,7 +76,6 @@ sudo
 telnet
 
 iptables-services
-ipset-service
 conntrack-tools
 
 gdisk
