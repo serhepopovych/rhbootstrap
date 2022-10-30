@@ -7778,21 +7778,6 @@ distro_fedora()
     {
         releasemm="$releasever"
 
-        if [ -n "$is_archive" ]; then
-            # Releases available at $baseurl
-            local url="${baseurl%/*/$releasever/*}"
-
-            local baseurl_p1='^#\?\(baseurl\)=.\+/\([^/]\+/\$releasever/.\+\)$'
-            local baseurl_p2="\1=$url/\2"
-
-            find "${install_root}etc/yum.repos.d" \
-                -name 'fedora*.repo' -a -type f -a -exec \
-            sed -i \
-                -e 's,^\(mirrorlist\|metalink\)=,#\1=,' \
-                -e "s,$baseurl_p1,$baseurl_p2," \
-            {} \+
-        fi
-
         # On old/new Fedora we do
 
         # ... not support nfs-root for Fedora < 12
