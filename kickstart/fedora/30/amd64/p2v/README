@@ -9,8 +9,8 @@ livenet (network/PXE) boot sharing squashfs image over NFS. That's
 method much faster and doesn't have memory overhead compated to one
 described in virt-p2v-maker-kickstart(1) that downloads image over TFTP.
 
-Note that i386 and amd64 (x86_64) kickstart files differ in repo URLs and
-binary format of virt-v2v(1) utility embedded to them.
+Note that i386 and amd64 (x86_64) kickstart files differ in embedded to
+them virt-v2v(1) utility.
 
 Usually you want to generate RSA keypair with ssh-keygen(1) for ssh
 public key authentication with conversion server and add base64(1)
