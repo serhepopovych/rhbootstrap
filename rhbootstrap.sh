@@ -8167,10 +8167,10 @@ esac
 
 if [ -n "$cc" ]; then
     cc="$(echo "$cc" | tr '[:upper:]' '[:lower:]')"
-    if is_rocky; then
-        cc_var='country'
-    else
+    if centos_version_lt $releasemaj 9; then
         cc_var='cc'
+    else
+        cc_var='country'
     fi
 
     for f in \
@@ -8187,7 +8187,7 @@ if [ -n "$cc" ]; then
     for f in "${install_root}etc/yum.repos.d"/*.repo; do
         if [ -f "$f" ]; then
             sed -i "$f" \
-                -e '/^mirrorlist=.\+\/\?[^=]\+=[^=]*/!b' \
+                -e '/^\(mirrorlist\|metalink\)=.\+\/\?[^=]\+=[^=]*/!b' \
                 -e "/&$cc_var=.\+/b" \
                 -e "s/.\+/\0\&$cc_var=$cc/" \
                 #
