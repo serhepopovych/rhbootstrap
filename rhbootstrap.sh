@@ -6187,9 +6187,7 @@ readonly _tmp_mount=25
 readonly _tmp_mount_max=50
 tmp_mount=${_tmp_mount}
 # Plymouth
-readonly _plymouth_theme='tribar'
 plymouth_theme=''
-readonly _plymouth_type='text'
 plymouth_type=''
 # Serial line console
 readonly _serial_console='console=ttyS0,115200n8'
@@ -6322,8 +6320,8 @@ Options and their defaults:
         Mount /tmp as regular filesystem or tmpfs with size up to
         ${tmp_mount:-<value>}% of system RAM. Valid value range is
         [${_tmp_mount_min}...${_tmp_mount_max}]
-    --plymouth-theme=${plymouth_theme:-${_plymouth_theme}}
-        Select plymouth theme when plymouth enabled
+    --plymouth-theme=${plymouth_theme:-<none>}
+        Enable plymouth and select theme
     --serial-console=${serial_console:-<console=name,options|1>}, --no-serial-console
         Enable/disable console on serial line; if value is 1 use default console
         settings (${_serial_console})
