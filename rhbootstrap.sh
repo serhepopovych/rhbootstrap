@@ -4583,8 +4583,23 @@ dnsmasq.tgz.b64
     fi
 
     # Enable OpenvSwitch
-    if [ -f "${install_root}etc/sysconfig/openvswitch" ]; then
+    t="${install_root}etc/sysconfig/openvswitch"
+    if [ -f "$t" ]; then
         in_chroot "$install_root" 'systemctl enable openvswitch.service'
+
+        if [ -f "${install_root}usr/share/man/man7/nm-openvswitch.7.gz" ] ||
+           [ -f "${install_root}etc/sysconfig/network-scripts/ifup-ovs" ]
+        then
+            # Delete all bridges on startup assuming they will be created
+            # by NetworkManager-ovs or network-scripts-openvswitch.
+            local opt='--delete-bridges'
+            sed -i "$t" \
+                -e '/^\s*OPTIONS=/!b' \
+                -e "/\(\s\+\|['\"]\|=\)$opt\([\"']\|\s\+\|$\)/b" \
+                -e "s,\s*\([\"']\|\)\s*$, $opt\1,g" \
+                -e "s,\(['\"]\|=\)\s\+\($opt\),\1\2," \
+                #
+        fi
     fi
 }
 
