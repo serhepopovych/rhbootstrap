@@ -8378,8 +8378,6 @@ elif is_fedora; then
         pkg_glvnd=
         pkg_chromium=
         pkg_pidgin_hangouts=
-        pkg_nm_openconnect=
-        pkg_nm_l2tp=
     }
     fedora_le_25() {
         pkg_driverctl=
@@ -8392,6 +8390,7 @@ elif is_fedora; then
         pkg_va_intel_hybrid_driver=
     }
     fedora_le_27() {
+        pkg_nm_ovs=
         pkg_iucode_tool=
         pkg_remmina_plugins_secret=
     }
