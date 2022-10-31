@@ -7521,7 +7521,7 @@ distro_rhel()
                     local t="\$releasever\|$releasemaj"
 
                     local baseurl_p1="^#\?\(baseurl\)=.\+/\($t\)/\(.\+\)$"
-                    local baseurl_p2="\1=$url/\$releasever/\3"
+                    local baseurl_p2="\1=$url/$releasemm/\3"
 
                     find "${install_root}etc/yum.repos.d" \
                         -name 'epel*.repo' -a -type f -a -exec \
