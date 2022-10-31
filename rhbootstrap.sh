@@ -8243,6 +8243,12 @@ pkg_xorg_x11_utils=1
             # No qmmp in EPEL for CentOS/RHEL 8: try rhythmbox
             [ -z "${pkg_qmmp-}" ] || pkg_rhythmbox=1
 
+            if [ -n "$is_archive" ]; then
+                pkg_gucharmap=
+                pkg_lightdm=
+                pkg_slick_greeter=
+            fi
+
             pkg_va_intel_hybrid_driver=
             pkg_vdpau_va_gl=
         else
