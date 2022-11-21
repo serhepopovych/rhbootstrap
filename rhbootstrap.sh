@@ -4877,7 +4877,7 @@ config_libvirt_qemu()
         local n='\(user\|group\)'
         local v="$libvirt_qemu_user"
 
-        if [ -n "$v" ] ; then
+        if [ -n "$v" ]; then
             eval "r1=\"$r\""
 
             sed -i "$t" \
@@ -4922,7 +4922,7 @@ config_libvirt()
             "
         done
 
-        if [ -n "$r1$r2$r3$r4" ]; then
+        if [ -n "$r1$r2$r3$r4$r5" ]; then
             sed -i "$t" \
                 ${r1:+-e "$r1"} \
                 ${r2:+-e "$r2"} \
