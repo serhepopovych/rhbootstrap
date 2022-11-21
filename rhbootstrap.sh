@@ -4947,6 +4947,55 @@ ${libvirt_unix_group:+SocketGroup=$libvirt_unix_group}
 ${libvirt_unix_rw_perms:+SocketMode=$libvirt_unix_ro_perms}
 EOF
         fi
+
+        for t in \
+            "${install_root}etc/init.d/libvirt-guests" \
+            "${install_root}usr/libexec/libvirt-guests.sh" \
+            #
+        do
+            [ -x "$t" ] || continue
+
+            t="${install_root}etc/sysconfig/libvirt-guests"
+            if [ ! -f "$t" ]; then
+                # Remove broken symlink
+                rm -f "$t" ||:
+
+                local unpack_dir="$install_root"
+# md5(libvirt-guests.tgz.b64) = bb8d56cfa5c82464c808e438b68987bc
+[ -d "$unpack_dir" ] || install -d "$unpack_dir"
+base64 -d -i <<'libvirt-guests.tgz.b64' | tar -zxf - -C "$unpack_dir"
+H4sIAF+Ae2MAA+1W204bSRDl2V9Rwg8kWmPMXYrkB0OQgsQCwkYRT6g9rvH0Mu6e7YuN8/Vb1T1j
+Y29IXiJFkfoIYTTuPnXq1GVAlx3Ypc20yuX0oJTjuTRuf+rROrvzi9AjnJ2chE/C9ufJ0dHhzuHJ
+8fHZ2fl57/xop3d4enR6vgO9XyXgR/DWCQOwY7R2Pzr3s+//ULTh8eHagtOQFZi9QK4NGK+UVFOI
+XdBqA76KWVXiJz477O9NMBe+dPCK6tPBAbePwxnMx/r1L5dV9KjQ1jWPy9dsfWiv1Q4UNUOLuEXm
+pFbgxAsqoD/4LozJbPpuH7g4DgBEWdZyYFHIrIAFGlwJpWu28G6iFwoEPQ+3cMLPa6Y1DE6FmZRo
+LX/tCpQGhHc6RrLoHDHaEFxOlSY22JwKkErSwczIysFCqz1XqxRqGTU2cTuUzALnaDobCmqamTAv
+pFHYN+EXkvK0jn+PMTyfCSczyn65Smq83GCrxU1a7bvb54u7u1E/HGRrb/1sjAZ0TmnRgE9CmReC
+1I/RLZD8RkFWRs3hVheG6PhUj39RWL0gnkoY+hPLeMZX3VZ7OBo8jJ4/X90Mnvq9d8vYFCWW0tsK
+1aQu5maPxarFA5Sit/wVpWULskmJKU6smGOkaQr9Ho2wbCvJb0524b5EYZEtzehE7ksy2hUbNgK1
+grSr+gMpyJDbgxjpuWLjlsw6kZZPeEnaGhvFFlV0NDYqkzpPk0WDFRvKrnMw+G8tnIwR8d4WV2T5
+h9YUKCQf6FipKWMnZ7iZ5deCpNQJbJFQawy/PI4+33297TcXOrDUHmZMLEqr+SY0h55H139f3T2O
+Qhdscc1F6blY0olxiWFhEJGpS9BtfS/WZjc2g1y3+coN6tHMG4PKlcsOtxJXFvMcMzYTuY1237Dv
+QiwYi9xtSHa7cJ2vurjzbiytuJ1E7kiSUJoL3f2/xI3FEic8+B7o6BZtxoyKAipcJEKWI1Xspbkw
+ki2icbkfPAxubq5u1s70vj+gC9wzkZ5zb8aVPa67oyk5xJpTrs10cvRGK0VHxbEnnaiFVWu6Jaqq
+lNSBvHVWD5mer3LjQMy1ZLq1CYLnYUrVpu0NtLyloqRDnrhKM7wcgqIQkX56HBxVnCLii3MUDOSw
+H7zFMIg0lZ63R4dlNdtRTgsXLKaBqcib0IpvN0o9Ox+7MCIVzTspdidFOu71Vq5+OCU+5R3aj7y7
+tpq8T0e5GqRcabX/DY0m4SZM+3hZCXpTcJ65pBzrl1pGexNDTwItJraNBjhosk6b9ULqAK1/NkD7
+aRF9mdEamco5UdFy5eJXaETYnVQGrqGebcSiiWpfPN0PhsPny8Hll6v+u1rtUmVNkwSPFRVzJiSv
+Getn2IUL2o4L2oBcF8GLJihiIyWvpXiXtq1ysS7WV5U2sUECJYcojFbyW5DMGdcLuG6GQEGBlk1B
+6v7LvQovCFFKt+TyOG+4h3Sec0Webi9DNfqHrd/9D1FCQkJCQkJCQkJCQkJCQkJCQkJCQkJCQkJC
+QkLCH4r/ALmScjcAKAAA
+libvirt-guests.tgz.b64
+            fi
+
+            sed -i "$t" \
+                -e 's,^#\?\(ON_SHUTDOWN\)=.*$,\1=shutdown,' \
+                #
+
+            in_chroot "$install_root" 'systemctl enable libvirt-guests.service'
+
+            break
+        done
     fi
 }
 
