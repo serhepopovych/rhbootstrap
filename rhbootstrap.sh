@@ -5244,10 +5244,10 @@ config_grub_ipxe()
             "${install_root}usr/lib/ipxe/$ipxe" \
             #
         do
-            if [ -f "$ipxe_iter" ]; then
-                install -D -m 0644 \
-                    "$ipxe_iter" "${install_root}boot/$ipxe_name" ||
-                return
+            if [ -f "$ipxe_iter" ] &&
+               install -D -m 0644 "$ipxe_iter" "${install_root}boot/$ipxe_name"
+            then
+               return 0
             fi
         done
 
