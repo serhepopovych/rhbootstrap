@@ -556,26 +556,6 @@ EOF
         return $rc
     }
 
-    # Usage: _command_not_supported
-    _command_not_supported()
-    {
-        if [ -n "${_cns_warn_once-}" ]; then
-            return 0
-        else
-            _cns_warn_once='1'
-
-            : ${initman:?missing or empty variable}
-            :  ${action:?missing or empty variable}
-
-            printf >&2  -- '%s: %s unsupported command "%s"\n' \
-                "$func" "$initman" "$action" \
-                #
-
-            return 124
-        fi
-    }
-    local _cns_warn_once=''
-
     local rc=''
     if [ $# -gt 0 ]; then
         local action="$1"
@@ -602,6 +582,26 @@ EOF
     [ -z "$rc" ] || return $rc
 
     local initd="${root-}/etc/init.d"
+
+    # Usage: _command_not_supported
+    _command_not_supported()
+    {
+        if [ -n "${_cns_warn_once-}" ]; then
+            return 0
+        else
+            _cns_warn_once='1'
+
+            : ${initman:?missing or empty variable}
+            :  ${action:?missing or empty variable}
+
+            printf >&2  -- '%s: %s unsupported command "%s"\n' \
+                "$func" "$initman" "$action" \
+                #
+
+            return 124
+        fi
+    }
+    local _cns_warn_once=''
 
     # Usage: sysvinit_*_enable <unit>
     sysvinit_updatercd_enable() {
@@ -763,12 +763,19 @@ EOF
                     *_get_default)
                         "$action" || rc=$((rc + $?))
                         ;;
+                    *_set_default)
+                        "$action" "${1-}" || rc=$((rc + $?))
+                        ;;
                     *)
                         local f
                         for f in "$@"; do
-                            if [ -n "$f" ]; then
-                                "$action" "$f" || rc=$((rc + $?))
-                            fi
+                            case "${f##*.}" in
+                                '')
+                                    ;;
+                                'service'|"$f")
+                                    "$action" "${f%.service}" || rc=$((rc + $?))
+                                    ;;
+                            esac
                         done
                         ;;
                 esac
