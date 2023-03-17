@@ -5364,39 +5364,47 @@ config_grub_serial()
                 fi
             }
 
+            # Usage: grub_serial_console <console=...>
             grub_serial_console()
             {
-                local serconsole="$1"
-                serconsole="${serconsole##console=ttyS}"
-                serconsole="${serconsole##console=com}"
-                local unit="${serconsole%%,*}"
-                local speed parity word
-                local options="${serconsole##*,}"
+                local func="${FUNCNAME:-grub_serial_console}"
 
+                local serconsole="${1:?missing 1st arg to ${func}() <console=...>}"
+                shift
+
+                local unit=''
+
+                set -- $(IFS=',' && echo $serconsole)
+                if [ $# -gt 2 ] || [ -n "${1##console=*}" ]; then
+                    : "${unit:?${func}: not in console=device[,...] format}"
+                fi
+
+                local unit="${1##console=*[^0-9]}"
                 if [ -z "$unit" ]; then
-                    return
+                    : "${unit:?${func}: no unit number in $1}"
                 fi
-                if [ "$unit" != "$options" ]; then
-                    # Take optional 1st (parity) and 2nd (word) characters after speed
-                    set -- `echo "$options" | sed -e 's,^\([0-9]*\)\(.\?\)\(.\?\).*$,\1 \2 \3,'`
-                    speed="$1"
-                    parity="$2"
-                    word="$3"
-                else
-                    speed=''
-                    parity=''
-                    word=''
-                fi
-                [ -n "$speed" ] || speed='115200'
-                case "$parity" in
-                    n) parity='--parity=no'   ;;
-                    e) parity='--parity=even' ;;
-                    o) parity='--parity=odd'  ;;
-                    *) parity=''              ;;
-                esac
-                [ -z "$word" ] || word="--word=$word"
 
-                echo "serial --unit=$unit --speed=$speed $word $parity --stop=1"
+                local speed='' parity='n' word='8'
+                if [ -n "${2-}" ]; then
+                    speed="${2%%[^0-9]*}"
+
+                    parity="${2#$speed}"
+                    word="$parity"
+
+                    parity="${parity%%[0-9]*}"
+                    word="${word#$parity}"
+                    word="${word%%[^0-9]*}"
+                fi
+                speed="--speed=${speed:-115200}"
+                case "$parity" in
+                    n) parity=' --parity=no'   ;;
+                    e) parity=' --parity=even' ;;
+                    o) parity=' --parity=odd'  ;;
+                    *) parity=''               ;;
+                esac
+                [ -z "$word" ] || word=" --word=$word"
+
+                echo "serial --unit=$unit $speed$word$parity --stop=1"
             }
 
             # Hide stdout to /dev/null prevent evaluation
