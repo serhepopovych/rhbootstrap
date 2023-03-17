@@ -499,17 +499,13 @@ in_chroot()
 
     [ $# -gt 0 ] || return
 
-    if [ -n "${root-}" ]; then
-        env -i \
-            TERM="${TERM:-vt220}" \
-            PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' \
-            USER='root' \
-            HOME='/' \
-            LANG='C' \
-        chroot "$root" /bin/sh -c "$@"
-    else
-        /bin/sh -c "$@"
-    fi || return
+    env -i \
+        TERM="${TERM:-vt220}" \
+        PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin' \
+        USER='root' \
+        HOME='/' \
+        LANG='C' \
+    ${root:+chroot "$root"} /bin/sh -c "$@" || return
 }
 
 # Usage: systemctl_helper <action> <unit1> <unit2>...
